@@ -17,29 +17,21 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+
+    fun applyFallbackNamespace() {
+        val androidExtension = project.extensions.findByName("android") ?: return
+        val namespace = androidExtension.javaClass.getMethod("getNamespace").invoke(androidExtension) as? String
+        if (namespace.isNullOrBlank()) {
+            androidExtension.javaClass
+                .getMethod("setNamespace", String::class.java)
+                .invoke(androidExtension, project.group.toString())
+        }
+    }
+
+    plugins.withId("com.android.library") { applyFallbackNamespace() }
+    plugins.withId("com.android.application") { applyFallbackNamespace() }
 }
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
-}
-
-subprojects {
-    afterEvaluate {
-        extensions.findByName("android")?.let { androidExtension ->
-            val extensionClass = androidExtension.javaClass
-            val getNamespace = extensionClass.methods.firstOrNull {
-                it.name == "getNamespace" && it.parameterCount == 0
-            }
-            val setNamespace = extensionClass.methods.firstOrNull {
-                it.name == "setNamespace" && it.parameterCount == 1
-            }
-
-            if (getNamespace != null && setNamespace != null) {
-                val namespaceValue = getNamespace.invoke(androidExtension) as? String
-                if (namespaceValue.isNullOrBlank()) {
-                    setNamespace.invoke(androidExtension, project.group.toString())
-                }
-            }
-        }
-    }
 }

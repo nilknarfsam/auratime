@@ -2,6 +2,8 @@ import 'package:isar/isar.dart';
 
 part 'time_record.g.dart';
 
+enum DayType { regular, holiday, dayOff }
+
 @collection
 class TimeRecord {
   static const Duration dailyGoal = Duration(hours: 8, minutes: 48);
@@ -21,6 +23,8 @@ class TimeRecord {
 
   @Index(unique: true, replace: true)
   DateTime date;
+  @enumerated
+  DayType dayType = DayType.regular;
   DateTime? entryTime;
   DateTime? exitTime;
 
@@ -38,10 +42,27 @@ class TimeRecord {
 
   @ignore
   Duration get balance {
+    if (dayType == DayType.holiday) {
+      return Duration.zero;
+    }
+    if (dayType == DayType.dayOff) {
+      if (totalWorkedHours == Duration.zero) {
+        return -dailyGoal;
+      }
+      return totalWorkedHours - dailyGoal;
+    }
     if (totalWorkedHours == Duration.zero) {
       return Duration.zero;
     }
     return totalWorkedHours - dailyGoal;
+  }
+
+  @ignore
+  DateTime? get predictedExitTime {
+    if (entryTime == null) {
+      return null;
+    }
+    return entryTime!.add(const Duration(hours: 9, minutes: 48));
   }
 
   static DateTime _normalizeDate(DateTime value) {

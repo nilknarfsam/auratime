@@ -22,13 +22,19 @@ const TimeRecordSchema = CollectionSchema(
       name: r'date',
       type: IsarType.dateTime,
     ),
-    r'entryTime': PropertySchema(
+    r'dayType': PropertySchema(
       id: 1,
+      name: r'dayType',
+      type: IsarType.byte,
+      enumMap: _TimeRecorddayTypeEnumValueMap,
+    ),
+    r'entryTime': PropertySchema(
+      id: 2,
       name: r'entryTime',
       type: IsarType.dateTime,
     ),
     r'exitTime': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'exitTime',
       type: IsarType.dateTime,
     )
@@ -77,8 +83,9 @@ void _timeRecordSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDateTime(offsets[0], object.date);
-  writer.writeDateTime(offsets[1], object.entryTime);
-  writer.writeDateTime(offsets[2], object.exitTime);
+  writer.writeByte(offsets[1], object.dayType.index);
+  writer.writeDateTime(offsets[2], object.entryTime);
+  writer.writeDateTime(offsets[3], object.exitTime);
 }
 
 TimeRecord _timeRecordDeserialize(
@@ -88,10 +95,13 @@ TimeRecord _timeRecordDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = TimeRecord(
-    entryTime: reader.readDateTimeOrNull(offsets[1]),
-    exitTime: reader.readDateTimeOrNull(offsets[2]),
+    entryTime: reader.readDateTimeOrNull(offsets[2]),
+    exitTime: reader.readDateTimeOrNull(offsets[3]),
   );
   object.date = reader.readDateTime(offsets[0]);
+  object.dayType =
+      _TimeRecorddayTypeValueEnumMap[reader.readByteOrNull(offsets[1])] ??
+          DayType.regular;
   object.id = id;
   return object;
 }
@@ -106,13 +116,27 @@ P _timeRecordDeserializeProp<P>(
     case 0:
       return (reader.readDateTime(offset)) as P;
     case 1:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (_TimeRecorddayTypeValueEnumMap[reader.readByteOrNull(offset)] ??
+          DayType.regular) as P;
     case 2:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 3:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
 }
+
+const _TimeRecorddayTypeEnumValueMap = {
+  'regular': 0,
+  'holiday': 1,
+  'dayOff': 2,
+};
+const _TimeRecorddayTypeValueEnumMap = {
+  0: DayType.regular,
+  1: DayType.holiday,
+  2: DayType.dayOff,
+};
 
 Id _timeRecordGetId(TimeRecord object) {
   return object.id;
@@ -410,6 +434,60 @@ extension TimeRecordQueryFilter
     });
   }
 
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> dayTypeEqualTo(
+      DayType value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'dayType',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition>
+      dayTypeGreaterThan(
+    DayType value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'dayType',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> dayTypeLessThan(
+    DayType value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'dayType',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> dayTypeBetween(
+    DayType lower,
+    DayType upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'dayType',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition>
       entryTimeIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -627,6 +705,18 @@ extension TimeRecordQuerySortBy
     });
   }
 
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> sortByDayType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dayType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> sortByDayTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dayType', Sort.desc);
+    });
+  }
+
   QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> sortByEntryTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'entryTime', Sort.asc);
@@ -663,6 +753,18 @@ extension TimeRecordQuerySortThenBy
   QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> thenByDateDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'date', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> thenByDayType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dayType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> thenByDayTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dayType', Sort.desc);
     });
   }
 
@@ -711,6 +813,12 @@ extension TimeRecordQueryWhereDistinct
     });
   }
 
+  QueryBuilder<TimeRecord, TimeRecord, QDistinct> distinctByDayType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'dayType');
+    });
+  }
+
   QueryBuilder<TimeRecord, TimeRecord, QDistinct> distinctByEntryTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'entryTime');
@@ -735,6 +843,12 @@ extension TimeRecordQueryProperty
   QueryBuilder<TimeRecord, DateTime, QQueryOperations> dateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'date');
+    });
+  }
+
+  QueryBuilder<TimeRecord, DayType, QQueryOperations> dayTypeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'dayType');
     });
   }
 

@@ -42,34 +42,54 @@ class _DashboardScreenState extends State<DashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(theme),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 14),
+                      _buildDayTypeSelector(theme),
+                      const SizedBox(height: 24),
                       Center(
                         child: _isLoading
                             ? const CircularProgressIndicator()
                             : _buildPunchButton(theme),
                       ),
                       const SizedBox(height: 28),
-                      _buildRecordCard(
-                        theme: theme,
-                        label: 'Entrada',
-                        value: _todayRecord.entryTime,
-                        field: _RecordField.entry,
-                        expected: _formatExpectedTime(
-                          TimeRecordService.defaultEntryHour,
-                          TimeRecordService.defaultEntryMinute,
+                      if (_isRegularDay) ...[
+                        _buildRecordCard(
+                          theme: theme,
+                          label: 'Entrada',
+                          value: _todayRecord.entryTime,
+                          field: _RecordField.entry,
+                          expected: _formatExpectedTime(
+                            TimeRecordService.defaultEntryHour,
+                            TimeRecordService.defaultEntryMinute,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildRecordCard(
-                        theme: theme,
-                        label: 'Saída',
-                        value: _todayRecord.exitTime,
-                        field: _RecordField.exit,
-                        expected: _formatExpectedTime(
-                          TimeRecordService.defaultExitHour,
-                          TimeRecordService.defaultExitMinute,
+                        const SizedBox(height: 12),
+                        _buildRecordCard(
+                          theme: theme,
+                          label: 'Saída',
+                          value: _todayRecord.exitTime,
+                          field: _RecordField.exit,
+                          expected: _formatExpectedTime(
+                            TimeRecordService.defaultExitHour,
+                            TimeRecordService.defaultExitMinute,
+                          ),
                         ),
-                      ),
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeInOut,
+                          opacity: _shouldShowExitPrediction ? 1 : 0,
+                          child: AnimatedSize(
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeInOut,
+                            child: _shouldShowExitPrediction
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 14),
+                                    child: _buildPredictionBanner(theme),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ] else
+                        _buildSpecialDayMessage(theme),
                       const Spacer(),
                       Align(
                         child: TextButton(
@@ -155,7 +175,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             elevation: 0,
             backgroundColor: theme.colorScheme.surfaceContainerHighest,
             foregroundColor: theme.colorScheme.onSurface,
-            onPressed: _isLoading ? null : _recordNow,
+            onPressed: _isLoading || !_isRegularDay ? null : _recordNow,
             shape: const CircleBorder(),
             child: const Padding(
               padding: EdgeInsets.all(24),
@@ -226,6 +246,103 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Widget _buildPredictionBanner(ThemeData theme) {
+    final predictedExit = _todayRecord.predictedExitTime;
+    if (predictedExit == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.flag_circle_rounded,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Saída prevista para: ${_timeFormatter.format(predictedExit)}',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Jornada de 8h48m + 1h de almoço',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayTypeSelector(ThemeData theme) {
+    return SegmentedButton<DayType>(
+      segments: const [
+        ButtonSegment(value: DayType.regular, label: Text('Dia Normal')),
+        ButtonSegment(value: DayType.holiday, label: Text('Feriado')),
+        ButtonSegment(value: DayType.dayOff, label: Text('Folga')),
+      ],
+      selected: {_todayRecord.dayType},
+      showSelectedIcon: false,
+      onSelectionChanged: _isLoading
+          ? null
+          : (selection) {
+              final selectedDayType = selection.first;
+              _onDayTypeChanged(selectedDayType);
+            },
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return theme.colorScheme.primary.withValues(alpha: 0.22);
+          }
+          return theme.colorScheme.surface;
+        }),
+        foregroundColor: WidgetStateProperty.all(theme.colorScheme.onSurface),
+      ),
+    );
+  }
+
+  Widget _buildSpecialDayMessage(ThemeData theme) {
+    final isHoliday = _todayRecord.dayType == DayType.holiday;
+    final message = isHoliday
+        ? 'Aproveite seu Feriado!'
+        : 'Aproveite sua Folga! (-08:48h no banco)';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        message,
+        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
   Future<void> _loadTodayRecord() async {
     setState(() {
       _isLoading = true;
@@ -280,6 +397,35 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       _showFeedbackSnackBar('Horários padrões aplicados!');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _onDayTypeChanged(DayType dayType) async {
+    if (_todayRecord.dayType == dayType) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      _todayRecord.dayType = dayType;
+      final updatedRecord = await _timeRecordService.saveRecord(_todayRecord);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _todayRecord = updatedRecord;
+        _isLoading = false;
+      });
     } catch (_) {
       if (!mounted) {
         return;
@@ -398,4 +544,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   String _formatExpectedTime(int hour, int minute) {
     return _timeFormatter.format(DateTime(2000, 1, 1, hour, minute));
   }
+
+  bool get _shouldShowExitPrediction {
+    return _isRegularDay &&
+        _todayRecord.entryTime != null &&
+        _todayRecord.exitTime == null &&
+        _todayRecord.predictedExitTime != null;
+  }
+
+  bool get _isRegularDay => _todayRecord.dayType == DayType.regular;
 }

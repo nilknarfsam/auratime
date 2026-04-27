@@ -56,21 +56,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
         final dailyBalance = record.balance;
         final hasAllPunches = record.entryTime != null && record.exitTime != null;
         final statusColor = hasAllPunches ? Colors.greenAccent : Colors.amberAccent;
-        final balanceColor = dailyBalance.inMinutes >= 0 ? Colors.greenAccent : Colors.redAccent;
+        final isHoliday = record.dayType == DayType.holiday;
+        final isDayOff = record.dayType == DayType.dayOff;
+        final balanceColor = isHoliday
+            ? theme.colorScheme.onSurfaceVariant
+            : dailyBalance.inMinutes >= 0
+                ? Colors.greenAccent
+                : Colors.redAccent;
+        final balanceText = isHoliday ? '00:00' : _formatSignedDuration(dailyBalance);
 
         return Card(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
+                if (isHoliday || isDayOff)
+                  _buildDayTypeBadge(record.dayType)
+                else
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -91,7 +101,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _formatSignedDuration(dailyBalance),
+                      balanceText,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: balanceColor,
                         fontWeight: FontWeight.w600,
@@ -104,6 +114,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDayTypeBadge(DayType dayType) {
+    final isHoliday = dayType == DayType.holiday;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isHoliday
+            ? const Color(0xFF2D9CDB).withValues(alpha: 0.22)
+            : const Color(0xFFFF8A65).withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        isHoliday ? 'Feriado' : 'Folga',
+        style: TextStyle(
+          color: isHoliday ? const Color(0xFF72D7FF) : const Color(0xFFFFB199),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 
