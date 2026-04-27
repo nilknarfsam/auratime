@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AuraTime</string>
+    <string name="app_widget_description">Bater ponto e ver status do dia</string>
+    <string name="widget_status_placeholder">Abra o AuraTime para sincronizar</string>
+    <string name="widget_bater_ponto">Bater Ponto</string>
+</resources>

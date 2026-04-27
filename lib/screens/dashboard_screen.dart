@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/services/time_record_service.dart';
+import 'package:auratime/services/widget_service.dart';
 import 'package:intl/intl.dart';
 
 enum _RecordField { entry, exit }
@@ -394,6 +397,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       _todayRecord = record;
       _isLoading = false;
     });
+    unawaited(syncHomeWidgetStatus());
   }
 
   Future<void> _recordNow() async {
@@ -409,6 +413,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = updatedRecord;
         _isLoading = false;
       });
+      unawaited(syncHomeWidgetStatus());
       _showFeedbackSnackBar('Ponto registrado com sucesso!');
     } catch (_) {
       if (!mounted) {
@@ -435,6 +440,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = filledRecord;
         _isLoading = false;
       });
+      unawaited(syncHomeWidgetStatus());
       _showFeedbackSnackBar('Horários padrões aplicados!');
     } catch (_) {
       if (!mounted) {
@@ -465,6 +471,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = updatedRecord;
         _isLoading = false;
       });
+      unawaited(syncHomeWidgetStatus());
     } catch (_) {
       if (!mounted) {
         return;
@@ -532,6 +539,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = updatedRecord;
         _isLoading = false;
       });
+      unawaited(syncHomeWidgetStatus());
       _showFeedbackSnackBar('Horário atualizado com sucesso!');
     } catch (_) {
       if (!mounted) {
@@ -606,6 +614,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = updatedRecord;
         _isLoading = false;
       });
+      unawaited(syncHomeWidgetStatus());
       _showFeedbackSnackBar('Observação atualizada com sucesso!');
     } catch (_) {
       if (!mounted) {
