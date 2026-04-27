@@ -102,6 +102,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                           child: const Text('Preencher com horários padrões'),
                         ),
                       ),
+                      const SizedBox(height: 40),
+                      Center(
+                        child: Text(
+                          'Desenvolvido por Franklin Carvalho',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withOpacity(0.5),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
