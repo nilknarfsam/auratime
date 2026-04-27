@@ -37,6 +37,11 @@ const TimeRecordSchema = CollectionSchema(
       id: 3,
       name: r'exitTime',
       type: IsarType.dateTime,
+    ),
+    r'note': PropertySchema(
+      id: 4,
+      name: r'note',
+      type: IsarType.string,
     )
   },
   estimateSize: _timeRecordEstimateSize,
@@ -73,6 +78,12 @@ int _timeRecordEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.note;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -86,6 +97,7 @@ void _timeRecordSerialize(
   writer.writeByte(offsets[1], object.dayType.index);
   writer.writeDateTime(offsets[2], object.entryTime);
   writer.writeDateTime(offsets[3], object.exitTime);
+  writer.writeString(offsets[4], object.note);
 }
 
 TimeRecord _timeRecordDeserialize(
@@ -103,6 +115,7 @@ TimeRecord _timeRecordDeserialize(
       _TimeRecorddayTypeValueEnumMap[reader.readByteOrNull(offsets[1])] ??
           DayType.regular;
   object.id = id;
+  object.note = reader.readStringOrNull(offsets[4]);
   return object;
 }
 
@@ -122,6 +135,8 @@ P _timeRecordDeserializeProp<P>(
       return (reader.readDateTimeOrNull(offset)) as P;
     case 3:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 4:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -683,6 +698,152 @@ extension TimeRecordQueryFilter
       ));
     });
   }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'note',
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'note',
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'note',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'note',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'note',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> noteIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'note',
+        value: '',
+      ));
+    });
+  }
 }
 
 extension TimeRecordQueryObject
@@ -738,6 +899,18 @@ extension TimeRecordQuerySortBy
   QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> sortByExitTimeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'exitTime', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> sortByNote() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'note', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> sortByNoteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'note', Sort.desc);
     });
   }
 }
@@ -803,6 +976,18 @@ extension TimeRecordQuerySortThenBy
       return query.addSortBy(r'id', Sort.desc);
     });
   }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> thenByNote() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'note', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterSortBy> thenByNoteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'note', Sort.desc);
+    });
+  }
 }
 
 extension TimeRecordQueryWhereDistinct
@@ -828,6 +1013,13 @@ extension TimeRecordQueryWhereDistinct
   QueryBuilder<TimeRecord, TimeRecord, QDistinct> distinctByExitTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'exitTime');
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QDistinct> distinctByNote(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'note', caseSensitive: caseSensitive);
     });
   }
 }
@@ -861,6 +1053,12 @@ extension TimeRecordQueryProperty
   QueryBuilder<TimeRecord, DateTime?, QQueryOperations> exitTimeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'exitTime');
+    });
+  }
+
+  QueryBuilder<TimeRecord, String?, QQueryOperations> noteProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'note');
     });
   }
 }

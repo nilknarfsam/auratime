@@ -71,6 +71,9 @@ class PdfReportService {
         DayType.dayOff => 'Folga',
         DayType.regular => 'Normal',
       };
+      final statusWithNote = record.hasNote
+          ? '$status\nObs: ${record.note!.trim()}'
+          : status;
 
       final dayBalance = record.dayType == DayType.holiday
           ? Duration.zero
@@ -80,7 +83,7 @@ class PdfReportService {
         _dateFormatter.format(record.date),
         record.entryTime != null ? _timeFormatter.format(record.entryTime!) : '--:--',
         record.exitTime != null ? _timeFormatter.format(record.exitTime!) : '--:--',
-        status,
+        statusWithNote,
         _formatSignedDuration(dayBalance),
       ];
     }).toList();

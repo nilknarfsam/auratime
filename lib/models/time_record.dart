@@ -27,6 +27,7 @@ class TimeRecord {
   DayType dayType = DayType.regular;
   DateTime? entryTime;
   DateTime? exitTime;
+  String? note;
 
   @ignore
   Duration get totalWorkedHours {
@@ -64,6 +65,9 @@ class TimeRecord {
     }
     return entryTime!.add(const Duration(hours: 9, minutes: 48));
   }
+
+  @ignore
+  bool get hasNote => note != null && note!.trim().isNotEmpty;
 
   static DateTime _normalizeDate(DateTime value) {
     return DateTime(value.year, value.month, value.day);

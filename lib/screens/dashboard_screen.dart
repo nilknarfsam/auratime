@@ -88,6 +88,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 : const SizedBox.shrink(),
                           ),
                         ),
+                        const SizedBox(height: 14),
+                        _buildNoteSection(theme),
                       ] else
                         _buildSpecialDayMessage(theme),
                       const Spacer(),
@@ -343,6 +345,43 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Widget _buildNoteSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_todayRecord.hasNote)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _todayRecord.note!.trim(),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        TextButton.icon(
+          onPressed: _isLoading ? null : _showNoteDialog,
+          icon: const Icon(Icons.edit_note_rounded),
+          label: Text(_todayRecord.hasNote ? 'Editar Observação' : 'Adicionar Observação'),
+        ),
+      ],
+    );
+  }
+
   Future<void> _loadTodayRecord() async {
     setState(() {
       _isLoading = true;
@@ -494,6 +533,80 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       _showFeedbackSnackBar('Horário atualizado com sucesso!');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _showNoteDialog() async {
+    final rawNote = _todayRecord.note ?? '';
+    final initialNote =
+        rawNote.length > 150 ? rawNote.substring(0, 150) : rawNote;
+    final controller = TextEditingController(text: initialNote);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          title: const Text('Observação do dia'),
+          content: TextField(
+            controller: controller,
+            minLines: 1,
+            maxLines: 3,
+            maxLength: 150,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'Ex: Compensação de feriado',
+              border: const OutlineInputBorder(),
+              counterStyle: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      _todayRecord.note = result.isEmpty ? null : result;
+      final updatedRecord = await _timeRecordService.saveRecord(_todayRecord);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _todayRecord = updatedRecord;
+        _isLoading = false;
+      });
+      _showFeedbackSnackBar('Observação atualizada com sucesso!');
     } catch (_) {
       if (!mounted) {
         return;

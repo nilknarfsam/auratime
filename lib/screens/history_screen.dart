@@ -71,47 +71,74 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 return Card(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (isHoliday || isDayOff)
-                          _buildDayTypeBadge(record.dayType)
-                        else
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: statusColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _capitalize(_dateFormatter.format(record.date)),
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        Row(
                           children: [
-                            Text(
-                              _formatDuration(record.totalWorkedHours),
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
+                            if (isHoliday || isDayOff)
+                              _buildDayTypeBadge(record.dayType)
+                            else
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _capitalize(_dateFormatter.format(record.date)),
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              balanceText,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: balanceColor,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _formatDuration(record.totalWorkedHours),
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  balanceText,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: balanceColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
+                        if (record.hasNote) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.comment_rounded,
+                                size: 15,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  record.note!.trim(),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
