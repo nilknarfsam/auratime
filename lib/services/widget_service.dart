@@ -11,32 +11,36 @@ final DateFormat _widgetTimeFormat = DateFormat('HH:mm');
 /// Chamado pelo Android ao tocar em "Bater Ponto" no widget (isolate separado).
 @pragma('vm:entry-point')
 Future<void> backgroundCallback(Uri? uri) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  if (uri?.host != 'bater_ponto') {
-    return;
-  }
+    if (uri?.host != 'bater_ponto') {
+      return;
+    }
 
-  await TimeRecordService.initialize();
-  final service = TimeRecordService();
-  final current = await service.getTodayRecord();
+    await TimeRecordService.initialize();
+    final service = TimeRecordService();
+    final current = await service.getTodayRecord();
 
-  if (current.dayType != DayType.regular) {
+    if (current.dayType != DayType.regular) {
+      await HomeWidget.saveWidgetData(
+        'widget_status_text',
+        _statusTextForRecord(current),
+      );
+      await HomeWidget.updateWidget(qualifiedAndroidName: _androidWidgetQualifiedName);
+      return;
+    }
+
+    await service.recordCurrentTime();
+    final updated = await service.getTodayRecord();
     await HomeWidget.saveWidgetData(
       'widget_status_text',
-      _statusTextForRecord(current),
+      _statusTextForRecord(updated),
     );
     await HomeWidget.updateWidget(qualifiedAndroidName: _androidWidgetQualifiedName);
-    return;
+  } catch (e) {
+    debugPrint('Erro no widget: $e');
   }
-
-  await service.recordCurrentTime();
-  final updated = await service.getTodayRecord();
-  await HomeWidget.saveWidgetData(
-    'widget_status_text',
-    _statusTextForRecord(updated),
-  );
-  await HomeWidget.updateWidget(qualifiedAndroidName: _androidWidgetQualifiedName);
 }
 
 /// Atualiza o texto exibido no widget (ex.: após abrir o app e sincronizar Isar).

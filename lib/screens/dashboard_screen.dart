@@ -389,15 +389,26 @@ class _DashboardScreenState extends State<DashboardScreen>
     setState(() {
       _isLoading = true;
     });
-    final record = await _timeRecordService.getTodayRecord();
-    if (!mounted) {
-      return;
+    try {
+      final record = await _timeRecordService.getTodayRecord();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _todayRecord = record;
+      });
+      unawaited(syncHomeWidgetStatus());
+    } catch (_) {
+      if (mounted) {
+        _showErrorSnackBar('Não foi possível carregar o dia de hoje.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-    setState(() {
-      _todayRecord = record;
-      _isLoading = false;
-    });
-    unawaited(syncHomeWidgetStatus());
   }
 
   Future<void> _recordNow() async {
@@ -476,9 +487,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (!mounted) {
         return;
       }
-      setState(() {
-        _isLoading = false;
-      });
+      _showErrorSnackBar('Não foi possível salvar o tipo de dia.');
+      await _loadTodayRecord();
     }
   }
 
@@ -545,9 +555,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (!mounted) {
         return;
       }
-      setState(() {
-        _isLoading = false;
-      });
+      _showErrorSnackBar('Não foi possível salvar o horário.');
+      await _loadTodayRecord();
     }
   }
 
@@ -649,6 +658,28 @@ class _DashboardScreenState extends State<DashboardScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    final theme = Theme.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(
+            color: theme.colorScheme.onErrorContainer,
+            fontSize: 14,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: theme.colorScheme.errorContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

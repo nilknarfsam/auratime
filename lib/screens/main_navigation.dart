@@ -17,7 +17,13 @@ class _MainNavigationState extends State<MainNavigation> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: _currentIndex == 0 ? const DashboardScreen() : const HistoryScreen(),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: const [
+          DashboardScreen(),
+          HistoryScreen(),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         backgroundColor: theme.colorScheme.surface,

@@ -13,6 +13,7 @@ class PdfReportService {
     List<TimeRecord> records,
     Duration totalBalance,
     String referenceMonth,
+    String userName,
   ) async {
     final pdf = pw.Document();
     final generatedAt = DateTime.now();
@@ -22,7 +23,7 @@ class PdfReportService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          _buildHeader(generatedAt, referenceMonth),
+          _buildHeader(generatedAt, referenceMonth, userName),
           pw.SizedBox(height: 16),
           _buildTable(records),
           pw.SizedBox(height: 16),
@@ -36,7 +37,11 @@ class PdfReportService {
     );
   }
 
-  static pw.Widget _buildHeader(DateTime generatedAt, String referenceMonth) {
+  static pw.Widget _buildHeader(
+    DateTime generatedAt,
+    String referenceMonth,
+    String userName,
+  ) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
       decoration: pw.BoxDecoration(
@@ -55,7 +60,7 @@ class PdfReportService {
             ),
           ),
           pw.SizedBox(height: 8),
-          pw.Text('Usuário: Franklin'),
+          pw.Text('Usuário: $userName'),
           pw.Text('Mês de Referência: $referenceMonth'),
           pw.Text('Gerado em: ${_reportDateFormatter.format(generatedAt)}'),
         ],

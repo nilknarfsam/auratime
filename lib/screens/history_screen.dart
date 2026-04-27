@@ -32,120 +32,68 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              itemCount: _records.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return _buildTotalBalanceCard(theme);
-                }
-
-                if (_records.isEmpty) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                      child: Text(
-                        'Nenhum registro salvo ainda.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: _isLoading
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text(
+                      'Histórico',
+                      style: theme.textTheme.headlineMedium,
                     ),
-                  );
-                }
-
-                final record = _records[index - 1];
-                final dailyBalance = record.balance;
-                final hasAllPunches = record.entryTime != null && record.exitTime != null;
-                final statusColor = hasAllPunches ? Colors.greenAccent : Colors.amberAccent;
-                final isHoliday = record.dayType == DayType.holiday;
-                final isDayOff = record.dayType == DayType.dayOff;
-                final balanceColor = isHoliday
-                    ? theme.colorScheme.onSurfaceVariant
-                    : dailyBalance.inMinutes >= 0
-                        ? Colors.greenAccent
-                        : Colors.redAccent;
-                final balanceText = isHoliday ? '00:00' : _formatSignedDuration(dailyBalance);
-
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            if (isHoliday || isDayOff)
-                              _buildDayTypeBadge(record.dayType)
-                            else
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _capitalize(_dateFormatter.format(record.date)),
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text(
+                      'Histórico',
+                      style: theme.textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildTotalBalanceCard(theme),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: _records.isEmpty
+                          ? ListView(
+                              padding: const EdgeInsets.only(bottom: 100),
                               children: [
-                                Text(
-                                  _formatDuration(record.totalWorkedHours),
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  balanceText,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: balanceColor,
-                                    fontWeight: FontWeight.w600,
+                                Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 20,
+                                    ),
+                                    child: Text(
+                                      'Nenhum registro salvo ainda.',
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
                                   ),
                                 ),
                               ],
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.only(bottom: 100),
+                              itemCount: _records.length,
+                              separatorBuilder: (_, _) => const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                return _buildHistoryRecordCard(theme, _records[index]);
+                              },
                             ),
-                          ],
-                        ),
-                        if (record.hasNote) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.comment_rounded,
-                                size: 15,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  record.note!.trim(),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
                     ),
-                  ),
-                );
-              },
-            ),
+                  ],
+                ),
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'history_pdf_report_fab',
         onPressed: _isLoading || _isGeneratingReport ? null : _generatePdfReport,
         icon: _isGeneratingReport
             ? const SizedBox(
@@ -155,6 +103,96 @@ class _HistoryScreenState extends State<HistoryScreen> {
               )
             : const Icon(Icons.picture_as_pdf_rounded),
         label: const Text('Relatório PDF'),
+      ),
+    );
+  }
+
+  Widget _buildHistoryRecordCard(ThemeData theme, TimeRecord record) {
+    final dailyBalance = record.balance;
+    final hasAllPunches = record.entryTime != null && record.exitTime != null;
+    final statusColor = hasAllPunches ? Colors.greenAccent : Colors.amberAccent;
+    final isHoliday = record.dayType == DayType.holiday;
+    final isDayOff = record.dayType == DayType.dayOff;
+    final balanceColor = isHoliday
+        ? theme.colorScheme.onSurfaceVariant
+        : dailyBalance.inMinutes >= 0
+            ? Colors.greenAccent
+            : Colors.redAccent;
+    final balanceText = isHoliday ? '00:00' : _formatSignedDuration(dailyBalance);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (isHoliday || isDayOff)
+                  _buildDayTypeBadge(record.dayType)
+                else
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _capitalize(_dateFormatter.format(record.date)),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _formatDuration(record.totalWorkedHours),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      balanceText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: balanceColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (record.hasNote) ...[
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.comment_rounded,
+                    size: 15,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      record.note!.trim(),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -215,16 +253,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _loadHistory() async {
-    final records = await _timeRecordService.getAllRecords();
-    final totalBalance = await _timeRecordService.calculateTotalBalance();
-    if (!mounted) {
-      return;
+    try {
+      final records = await _timeRecordService.getAllRecords();
+      final totalBalance = await _timeRecordService.calculateTotalBalance();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _records = records;
+        _totalBalance = totalBalance;
+      });
+    } catch (_) {
+      if (mounted) {
+        _showErrorSnackBar('Não foi possível carregar o histórico.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-    setState(() {
-      _records = records;
-      _totalBalance = totalBalance;
-      _isLoading = false;
-    });
   }
 
   Future<void> _generatePdfReport() async {
@@ -307,14 +356,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         monthlyRecords,
         monthlyBalance,
         selectedMonth.label,
+        'Franklin',
       );
     } finally {
-      if (!mounted) {
-        return;
+      if (mounted) {
+        setState(() {
+          _isGeneratingReport = false;
+        });
       }
-      setState(() {
-        _isGeneratingReport = false;
-      });
     }
   }
 
@@ -365,6 +414,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return text;
     }
     return '${text[0].toUpperCase()}${text.substring(1)}';
+  }
+
+  void _showErrorSnackBar(String message) {
+    final theme = Theme.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(
+            color: theme.colorScheme.onErrorContainer,
+            fontSize: 14,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: theme.colorScheme.errorContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 }
 
