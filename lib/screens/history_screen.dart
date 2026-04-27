@@ -1,4 +1,5 @@
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/services/pdf_report_service.dart';
 import 'package:auratime/services/time_record_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -13,9 +14,12 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final TimeRecordService _timeRecordService = TimeRecordService();
   final DateFormat _dateFormatter = DateFormat("d 'de' MMMM", 'pt_BR');
+  final DateFormat _monthKeyFormatter = DateFormat('MM/yyyy', 'pt_BR');
+  final DateFormat _monthLabelFormatter = DateFormat('MMMM yyyy', 'pt_BR');
   List<TimeRecord> _records = const [];
   Duration _totalBalance = Duration.zero;
   bool _isLoading = true;
+  bool _isGeneratingReport = false;
 
   @override
   void initState() {
@@ -27,93 +31,104 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    return Scaffold(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              itemCount: _records.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return _buildTotalBalanceCard(theme);
+                }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      itemCount: _records.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildTotalBalanceCard(theme);
-        }
-
-        if (_records.isEmpty) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              child: Text(
-                'Nenhum registro salvo ainda.',
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
-          );
-        }
-
-        final record = _records[index - 1];
-        final dailyBalance = record.balance;
-        final hasAllPunches = record.entryTime != null && record.exitTime != null;
-        final statusColor = hasAllPunches ? Colors.greenAccent : Colors.amberAccent;
-        final isHoliday = record.dayType == DayType.holiday;
-        final isDayOff = record.dayType == DayType.dayOff;
-        final balanceColor = isHoliday
-            ? theme.colorScheme.onSurfaceVariant
-            : dailyBalance.inMinutes >= 0
-                ? Colors.greenAccent
-                : Colors.redAccent;
-        final balanceText = isHoliday ? '00:00' : _formatSignedDuration(dailyBalance);
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                if (isHoliday || isDayOff)
-                  _buildDayTypeBadge(record.dayType)
-                else
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _capitalize(_dateFormatter.format(record.date)),
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      _formatDuration(record.totalWorkedHours),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                if (_records.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                      child: Text(
+                        'Nenhum registro salvo ainda.',
+                        style: theme.textTheme.bodyMedium,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      balanceText,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: balanceColor,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  );
+                }
+
+                final record = _records[index - 1];
+                final dailyBalance = record.balance;
+                final hasAllPunches = record.entryTime != null && record.exitTime != null;
+                final statusColor = hasAllPunches ? Colors.greenAccent : Colors.amberAccent;
+                final isHoliday = record.dayType == DayType.holiday;
+                final isDayOff = record.dayType == DayType.dayOff;
+                final balanceColor = isHoliday
+                    ? theme.colorScheme.onSurfaceVariant
+                    : dailyBalance.inMinutes >= 0
+                        ? Colors.greenAccent
+                        : Colors.redAccent;
+                final balanceText = isHoliday ? '00:00' : _formatSignedDuration(dailyBalance);
+
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        if (isHoliday || isDayOff)
+                          _buildDayTypeBadge(record.dayType)
+                        else
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _capitalize(_dateFormatter.format(record.date)),
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _formatDuration(record.totalWorkedHours),
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              balanceText,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: balanceColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                );
+              },
             ),
-          ),
-        );
-      },
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isLoading || _isGeneratingReport ? null : _generatePdfReport,
+        icon: _isGeneratingReport
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.picture_as_pdf_rounded),
+        label: const Text('Relatório PDF'),
+      ),
     );
   }
 
@@ -185,6 +200,123 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
+  Future<void> _generatePdfReport() async {
+    final availableMonths = _extractAvailableMonths();
+    if (availableMonths.isEmpty) {
+      return;
+    }
+
+    final selectedMonth = await showModalBottomSheet<_MonthOption>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Exportar Relatório',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: availableMonths.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final option = availableMonths[index];
+                    return ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      tileColor: theme.colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.45,
+                      ),
+                      leading: const Icon(Icons.calendar_month_rounded),
+                      title: Text(option.label),
+                      onTap: () => Navigator.of(context).pop(option),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selectedMonth == null) {
+      return;
+    }
+
+    final monthlyRecords = _records
+        .where(
+          (record) =>
+              record.date.year == selectedMonth.year &&
+              record.date.month == selectedMonth.month,
+        )
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    Duration monthlyBalance = Duration.zero;
+    for (final record in monthlyRecords) {
+      monthlyBalance += record.balance;
+    }
+
+    setState(() {
+      _isGeneratingReport = true;
+    });
+
+    try {
+      await PdfReportService.generateAndPrintReport(
+        monthlyRecords,
+        monthlyBalance,
+        selectedMonth.label,
+      );
+    } finally {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isGeneratingReport = false;
+      });
+    }
+  }
+
+  List<_MonthOption> _extractAvailableMonths() {
+    final monthMap = <String, _MonthOption>{};
+    for (final record in _records) {
+      final key = _monthKeyFormatter.format(record.date);
+      monthMap.putIfAbsent(
+        key,
+        () => _MonthOption(
+          key: key,
+          year: record.date.year,
+          month: record.date.month,
+          label: _capitalize(_monthLabelFormatter.format(record.date)),
+        ),
+      );
+    }
+
+    final months = monthMap.values.toList()
+      ..sort((a, b) {
+        if (a.year != b.year) {
+          return b.year.compareTo(a.year);
+        }
+        return b.month.compareTo(a.month);
+      });
+
+    return months;
+  }
+
   String _formatDuration(Duration duration) {
     final totalMinutes = duration.inMinutes.abs();
     final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
@@ -207,4 +339,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     return '${text[0].toUpperCase()}${text.substring(1)}';
   }
+}
+
+class _MonthOption {
+  const _MonthOption({
+    required this.key,
+    required this.year,
+    required this.month,
+    required this.label,
+  });
+
+  final String key;
+  final int year;
+  final int month;
+  final String label;
 }
