@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/screens/widgets/dashboard_header.dart';
 import 'package:auratime/screens/widgets/punch_button.dart';
 import 'package:auratime/screens/widgets/time_record_card.dart';
 import 'package:auratime/services/app_settings_service.dart';
@@ -27,11 +28,6 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   final TimeRecordService _timeRecordService = TimeRecordService();
-  final DateFormat _longDateFormatter = DateFormat(
-    "EEEE, d 'de' MMMM",
-    'pt_BR',
-  );
-  final DateFormat _timeFormatter = DateFormat('HH:mm');
   TimeRecord _todayRecord = TimeRecord();
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
@@ -54,7 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildHeader(theme),
+                      const DashboardHeader(),
                       const SizedBox(height: 14),
                       _buildDayTypeSelector(theme),
                       const SizedBox(height: 24),
@@ -80,7 +76,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             settings.defaultEntryHour,
                             settings.defaultEntryMinute,
                           ),
-                          timeFormatter: _timeFormatter,
+                          timeFormatter: _hourFormatter,
                           onTap: _isLoading
                               ? null
                               : () => _editRecordTime(
@@ -96,7 +92,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             settings.defaultExitHour,
                             settings.defaultExitMinute,
                           ),
-                          timeFormatter: _timeFormatter,
+                          timeFormatter: _hourFormatter,
                           onTap: _isLoading
                               ? null
                               : () => _editRecordTime(
@@ -170,24 +166,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
-  Widget _buildHeader(ThemeData theme) {
-    final now = DateTime.now();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          _greeting(now),
-          style: theme.textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _longDateFormatter.format(now),
-          style: theme.textTheme.bodyMedium,
-        ),
-      ],
-    );
-  }
-
   Widget _buildPredictionBanner(ThemeData theme, AppSettings settings) {
     final predictedExit = _todayRecord.predictedExitTime;
     if (predictedExit == null) {
@@ -216,7 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Saída prevista para: ${_timeFormatter.format(predictedExit)}',
+                  'Saída prevista para: ${_hourFormatter.format(predictedExit)}',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: theme.colorScheme.onSurface,
@@ -605,18 +583,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  String _greeting(DateTime date) {
-    if (date.hour < 12) {
-      return 'Bom dia';
-    }
-    if (date.hour < 18) {
-      return 'Boa tarde';
-    }
-    return 'Boa noite';
-  }
-
   String _formatExpectedTime(int hour, int minute) {
-    return _timeFormatter.format(DateTime(2000, 1, 1, hour, minute));
+    return _hourFormatter.format(DateTime(2000, 1, 1, hour, minute));
   }
 
   String _formatDuration(Duration duration) {
@@ -637,4 +605,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   bool get _isDayFinalized =>
       _todayRecord.entryTime != null && _todayRecord.exitTime != null;
+
+  DateFormat get _hourFormatter => DateFormat('HH:mm');
 }

@@ -221,10 +221,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _save() async {
     final userName = _userNameController.text.trim();
-    if (userName.isEmpty) {
-      SnackBarHelper.showWarning(context, 'Informe o nome do usuário.');
-      return;
-    }
 
     setState(() {
       _isSaving = true;
