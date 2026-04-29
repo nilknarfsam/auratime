@@ -4,6 +4,7 @@ import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/screens/widgets/dashboard_header.dart';
+import 'package:auratime/screens/widgets/dashboard_insights_panel.dart';
 import 'package:auratime/screens/widgets/punch_button.dart';
 import 'package:auratime/screens/widgets/time_record_card.dart';
 import 'package:auratime/services/app_settings_service.dart';
@@ -29,6 +30,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   final TimeRecordService _timeRecordService = TimeRecordService();
   TimeRecord _todayRecord = TimeRecord();
+  Duration _weekBalance = Duration.zero;
+  Duration _weekWorkedHours = Duration.zero;
+  int _weekWorkedDays = 0;
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
   bool _isLoading = false;
@@ -53,6 +57,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const DashboardHeader(),
                       const SizedBox(height: 14),
                       _buildDayTypeSelector(theme),
+                      const SizedBox(height: 12),
+                      DashboardInsightsPanel(
+                        todayRecord: _todayRecord,
+                        weekWorkedDays: _weekWorkedDays,
+                        weekWorkedHours: _weekWorkedHours,
+                        weekBalance: _weekBalance,
+                      ),
                       const SizedBox(height: 24),
                       Center(
                         child: _isLoading
@@ -307,11 +318,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
     try {
       final record = await _timeRecordService.getTodayRecord();
+      final summary = await _loadWeekSummary();
       if (!mounted) {
         return;
       }
       setState(() {
         _todayRecord = record;
+        _weekBalance = summary.balance;
+        _weekWorkedHours = summary.workedHours;
+        _weekWorkedDays = summary.workedDays;
       });
       unawaited(syncHomeWidgetStatus());
     } catch (_) {
@@ -355,6 +370,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = result.record;
         _isLoading = false;
       });
+      await _refreshWeekSummary();
+      if (!mounted) {
+        return;
+      }
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Ponto registrado com sucesso!');
@@ -384,6 +403,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = filledRecord;
         _isLoading = false;
       });
+      await _refreshWeekSummary();
+      if (!mounted) {
+        return;
+      }
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Horários padrões aplicados!');
@@ -416,6 +439,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = updatedRecord;
         _isLoading = false;
       });
+      await _refreshWeekSummary();
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
     } catch (_) {
@@ -484,6 +508,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = updatedRecord;
         _isLoading = false;
       });
+      await _refreshWeekSummary();
+      if (!mounted) {
+        return;
+      }
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Horário atualizado com sucesso!');
@@ -559,6 +587,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord = updatedRecord;
         _isLoading = false;
       });
+      await _refreshWeekSummary();
+      if (!mounted) {
+        return;
+      }
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Observação atualizada com sucesso!');
@@ -607,4 +639,58 @@ class _DashboardScreenState extends State<DashboardScreen>
       _todayRecord.entryTime != null && _todayRecord.exitTime != null;
 
   DateFormat get _hourFormatter => DateFormat('HH:mm');
+
+  Future<void> _refreshWeekSummary() async {
+    final summary = await _loadWeekSummary();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _weekBalance = summary.balance;
+      _weekWorkedHours = summary.workedHours;
+      _weekWorkedDays = summary.workedDays;
+    });
+  }
+
+  Future<_WeeklySummary> _loadWeekSummary() async {
+    final records = await _timeRecordService.getAllRecords();
+    final now = DateTime.now();
+    final currentDay = DateTime(now.year, now.month, now.day);
+    final weekStart = currentDay.subtract(Duration(days: now.weekday - 1));
+    final weekEnd = weekStart.add(const Duration(days: 6));
+
+    Duration balance = Duration.zero;
+    Duration workedHours = Duration.zero;
+    int workedDays = 0;
+
+    for (final record in records) {
+      final day = DateTime(record.date.year, record.date.month, record.date.day);
+      if (day.isBefore(weekStart) || day.isAfter(weekEnd)) {
+        continue;
+      }
+      balance += record.balance;
+      workedHours += record.totalWorkedHours;
+      if (record.totalWorkedHours > Duration.zero) {
+        workedDays++;
+      }
+    }
+
+    return _WeeklySummary(
+      balance: balance,
+      workedHours: workedHours,
+      workedDays: workedDays,
+    );
+  }
+}
+
+class _WeeklySummary {
+  const _WeeklySummary({
+    required this.balance,
+    required this.workedHours,
+    required this.workedDays,
+  });
+
+  final Duration balance;
+  final Duration workedHours;
+  final int workedDays;
 }
