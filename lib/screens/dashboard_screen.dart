@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/screens/widgets/punch_button.dart';
+import 'package:auratime/screens/widgets/time_record_card.dart';
 import 'package:auratime/services/time_record_service.dart';
 import 'package:auratime/services/widget_service.dart';
 import 'package:intl/intl.dart';
@@ -51,30 +54,48 @@ class _DashboardScreenState extends State<DashboardScreen>
                       Center(
                         child: _isLoading
                             ? const CircularProgressIndicator()
-                            : _buildPunchButton(theme),
+                            : PunchButton(
+                                canPunch:
+                                    !_isLoading && _isRegularDay && !_isDayFinalized,
+                                isDayFinalized: _isDayFinalized,
+                                onPressed: !_isLoading && _isRegularDay && !_isDayFinalized
+                                    ? _recordNow
+                                    : null,
+                                pulseAnimation: _pulseAnimation,
+                              ),
                       ),
                       const SizedBox(height: 28),
                       if (_isRegularDay) ...[
-                        _buildRecordCard(
-                          theme: theme,
+                        TimeRecordCard(
                           label: 'Entrada',
                           value: _todayRecord.entryTime,
-                          field: _RecordField.entry,
                           expected: _formatExpectedTime(
                             TimeRecordService.defaultEntryHour,
                             TimeRecordService.defaultEntryMinute,
                           ),
+                          timeFormatter: _timeFormatter,
+                          onTap: _isLoading
+                              ? null
+                              : () => _editRecordTime(
+                                    _RecordField.entry,
+                                    _todayRecord.entryTime,
+                                  ),
                         ),
                         const SizedBox(height: 12),
-                        _buildRecordCard(
-                          theme: theme,
+                        TimeRecordCard(
                           label: 'Saída',
                           value: _todayRecord.exitTime,
-                          field: _RecordField.exit,
                           expected: _formatExpectedTime(
                             TimeRecordService.defaultExitHour,
                             TimeRecordService.defaultExitMinute,
                           ),
+                          timeFormatter: _timeFormatter,
+                          onTap: _isLoading
+                              ? null
+                              : () => _editRecordTime(
+                                    _RecordField.exit,
+                                    _todayRecord.exitTime,
+                                  ),
                         ),
                         AnimatedOpacity(
                           duration: const Duration(milliseconds: 350),
@@ -108,7 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           'Desenvolvido por Franklin Carvalho',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant
-                                .withOpacity(0.5),
+                                .withValues(alpha: 0.5),
                           ),
                         ),
                       ),
@@ -157,121 +178,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           style: theme.textTheme.bodyMedium,
         ),
       ],
-    );
-  }
-
-  Widget _buildPunchButton(ThemeData theme) {
-    final primary = theme.colorScheme.primary;
-    final secondary = theme.colorScheme.secondary;
-    final canPunch = !_isLoading && _isRegularDay && !_isDayFinalized;
-    final backgroundColor = canPunch
-        ? theme.colorScheme.surfaceContainerHighest
-        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45);
-    final foregroundColor =
-        canPunch ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant;
-
-    final button = DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: canPunch
-            ? [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.26),
-                  blurRadius: 24,
-                  spreadRadius: 3,
-                ),
-                BoxShadow(
-                  color: secondary.withValues(alpha: 0.13),
-                  blurRadius: 34,
-                  spreadRadius: 2,
-                ),
-              ]
-            : const [],
-      ),
-      child: SizedBox(
-        width: 182,
-        height: 182,
-        child: Opacity(
-          opacity: canPunch ? 1 : 0.85,
-          child: FloatingActionButton(
-            heroTag: 'punch_now_button',
-            elevation: 0,
-            backgroundColor: backgroundColor,
-            foregroundColor: foregroundColor,
-            onPressed: canPunch ? _recordNow : null,
-            shape: const CircleBorder(),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Text(
-                _isDayFinalized ? 'Dia finalizado' : 'Bater Ponto Agora',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (!canPunch) {
-      return button;
-    }
-
-    return ScaleTransition(scale: _pulseAnimation, child: button);
-  }
-
-  Widget _buildRecordCard({
-    required ThemeData theme,
-    required String label,
-    required DateTime? value,
-    required _RecordField field,
-    required String expected,
-  }) {
-    final isFilled = value != null;
-    final recordedTime = value;
-    final iconColor =
-        isFilled ? theme.colorScheme.secondary : theme.colorScheme.onSurfaceVariant;
-
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: _isLoading ? null : () => _editRecordTime(field, value),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-          child: Row(
-            children: [
-              Icon(
-                isFilled ? Icons.check_circle_rounded : Icons.access_time_rounded,
-                color: iconColor,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Text(
-                isFilled && recordedTime != null
-                    ? _timeFormatter.format(recordedTime)
-                    : 'Previsto: $expected',
-                style: isFilled
-                    ? theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      )
-                    : theme.textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -424,7 +330,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       unawaited(syncHomeWidgetStatus());
     } catch (_) {
       if (mounted) {
-        _showErrorSnackBar('Não foi possível carregar o dia de hoje.');
+        SnackBarHelper.showError(context, 'Não foi possível carregar o dia de hoje.');
       }
     } finally {
       if (mounted) {
@@ -437,7 +343,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _recordNow() async {
     if (_isDayFinalized) {
-      _showErrorSnackBar('Seu ponto de hoje já foi finalizado.');
+      SnackBarHelper.showWarning(context, 'Seu ponto de hoje já foi finalizado.');
       return;
     }
 
@@ -455,7 +361,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           _todayRecord = result.record;
           _isLoading = false;
         });
-        _showErrorSnackBar('Seu ponto de hoje já foi finalizado.');
+        SnackBarHelper.showWarning(context, 'Seu ponto de hoje já foi finalizado.');
         return;
       }
 
@@ -464,7 +370,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
-      _showFeedbackSnackBar('Ponto registrado com sucesso!');
+      SnackBarHelper.showSuccess(context, 'Ponto registrado com sucesso!');
     } catch (_) {
       if (!mounted) {
         return;
@@ -472,6 +378,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       setState(() {
         _isLoading = false;
       });
+      SnackBarHelper.showError(context, 'Não foi possível registrar o ponto.');
     }
   }
 
@@ -491,7 +398,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
-      _showFeedbackSnackBar('Horários padrões aplicados!');
+      SnackBarHelper.showSuccess(context, 'Horários padrões aplicados!');
     } catch (_) {
       if (!mounted) {
         return;
@@ -526,7 +433,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (!mounted) {
         return;
       }
-      _showErrorSnackBar('Não foi possível salvar o tipo de dia.');
+      SnackBarHelper.showError(context, 'Não foi possível salvar o tipo de dia.');
       await _loadTodayRecord();
     }
   }
@@ -589,12 +496,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
-      _showFeedbackSnackBar('Horário atualizado com sucesso!');
+      SnackBarHelper.showSuccess(context, 'Horário atualizado com sucesso!');
     } catch (_) {
       if (!mounted) {
         return;
       }
-      _showErrorSnackBar('Não foi possível salvar o horário.');
+      SnackBarHelper.showError(context, 'Não foi possível salvar o horário.');
       await _loadTodayRecord();
     }
   }
@@ -663,7 +570,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
-      _showFeedbackSnackBar('Observação atualizada com sucesso!');
+      SnackBarHelper.showSuccess(context, 'Observação atualizada com sucesso!');
     } catch (_) {
       if (!mounted) {
         return;
@@ -683,44 +590,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         _todayRecord.exitTime = value;
         return;
     }
-  }
-
-  void _showFeedbackSnackBar(String message) {
-    final theme = Theme.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: theme.colorScheme.surfaceContainerHighest,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _showErrorSnackBar(String message) {
-    final theme = Theme.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(
-            color: theme.colorScheme.onErrorContainer,
-            fontSize: 14,
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: theme.colorScheme.errorContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        duration: const Duration(seconds: 3),
-      ),
-    );
   }
 
   String _greeting(DateTime date) {

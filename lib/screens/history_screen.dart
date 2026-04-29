@@ -1,3 +1,5 @@
+import 'package:auratime/config/app_config.dart';
+import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/services/pdf_report_service.dart';
 import 'package:auratime/services/time_record_service.dart';
@@ -265,7 +267,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       });
     } catch (_) {
       if (mounted) {
-        _showErrorSnackBar('Não foi possível carregar o histórico.');
+        SnackBarHelper.showError(context, 'Não foi possível carregar o histórico.');
       }
     } finally {
       if (mounted) {
@@ -356,7 +358,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         monthlyRecords,
         monthlyBalance,
         selectedMonth.label,
-        'Franklin',
+        AppConfig.reportUserName,
       );
     } finally {
       if (mounted) {
@@ -416,27 +418,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return '${text[0].toUpperCase()}${text.substring(1)}';
   }
 
-  void _showErrorSnackBar(String message) {
-    final theme = Theme.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(
-            color: theme.colorScheme.onErrorContainer,
-            fontSize: 14,
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: theme.colorScheme.errorContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
 }
 
 class _MonthOption {
