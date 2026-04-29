@@ -24,10 +24,11 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final TimeRecordService _timeRecordService = TimeRecordService();
   final DateFormat _dateFormatter = DateFormat("d 'de' MMMM", 'pt_BR');
-  final DateFormat _monthKeyFormatter = DateFormat('MM/yyyy', 'pt_BR');
-  final DateFormat _monthLabelFormatter = DateFormat('MMMM yyyy', 'pt_BR');
-  List<TimeRecord> _records = const [];
-  Duration _totalBalance = Duration.zero;
+  final DateFormat _shortDateFormatter = DateFormat('dd/MM', 'pt_BR');
+  final DateFormat _timeFormatter = DateFormat('HH:mm', 'pt_BR');
+  List<TimeRecord> _allRecords = const [];
+  _HistoryFilter _selectedFilter = _HistoryFilter.currentMonth;
+  DateTimeRange? _customRange;
   bool _isLoading = true;
   bool _isGeneratingReport = false;
 
@@ -84,7 +85,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       style: theme.textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 14),
-                    _buildTotalBalanceCard(theme),
+                    _buildFilterSection(theme),
+                    const SizedBox(height: 12),
+                    _buildSummaryCard(theme),
                     const SizedBox(height: 12),
                     Expanded(child: _buildRefreshableHistoryList(theme)),
                   ],
@@ -108,37 +111,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _buildHistoryRecordCard(ThemeData theme, TimeRecord record) {
     final dailyBalance = record.balance;
-    final hasAllPunches = record.entryTime != null && record.exitTime != null;
-    final statusColor = hasAllPunches ? Colors.greenAccent : Colors.amberAccent;
-    final isHoliday = record.dayType == DayType.holiday;
-    final isDayOff = record.dayType == DayType.dayOff;
-    final balanceColor = isHoliday
-        ? theme.colorScheme.onSurfaceVariant
-        : dailyBalance.inMinutes >= 0
-            ? Colors.greenAccent
-            : Colors.redAccent;
-    final balanceText = isHoliday ? '00:00' : _formatSignedDuration(dailyBalance);
+    final isPositive = dailyBalance.inMinutes >= 0;
+    final balanceColor = isPositive ? const Color(0xFF56F09B) : const Color(0xFFFF8A80);
+    final statusText = _dayTypeLabel(record.dayType);
+    final statusColor = _dayTypeColor(record.dayType);
+    final statusBackground = statusColor.withValues(alpha: 0.18);
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                if (isHoliday || isDayOff)
-                  _buildDayTypeBadge(record.dayType)
-                else
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusBackground,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
                       color: statusColor,
-                      shape: BoxShape.circle,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                const SizedBox(width: 12),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     _capitalize(_dateFormatter.format(record.date)),
@@ -151,20 +153,42 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      _formatDuration(record.totalWorkedHours),
+                      _formatSignedDuration(dailyBalance),
                       style: theme.textTheme.bodyLarge?.copyWith(
+                        color: balanceColor,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      balanceText,
+                      _formatDuration(record.totalWorkedHours),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: balanceColor,
-                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPunchInfo(
+                    theme: theme,
+                    icon: Icons.login_rounded,
+                    label: 'Entrada',
+                    value: _formatPunch(record.entryTime),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildPunchInfo(
+                    theme: theme,
+                    icon: Icons.logout_rounded,
+                    label: 'Saída',
+                    value: _formatPunch(record.exitTime),
+                  ),
                 ),
               ],
             ),
@@ -196,58 +220,193 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildDayTypeBadge(DayType dayType) {
-    final isHoliday = dayType == DayType.holiday;
-
+  Widget _buildPunchInfo({
+    required ThemeData theme,
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: isHoliday
-            ? const Color(0xFF2D9CDB).withValues(alpha: 0.22)
-            : const Color(0xFFFF8A65).withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(999),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        isHoliday ? 'Feriado' : 'Folga',
-        style: TextStyle(
-          color: isHoliday ? const Color(0xFF72D7FF) : const Color(0xFFFFB199),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.secondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: theme.textTheme.labelSmall),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedButton<_HistoryFilter>(
+          segments: const [
+            ButtonSegment(
+              value: _HistoryFilter.currentMonth,
+              label: Text('Mês atual'),
+            ),
+            ButtonSegment(
+              value: _HistoryFilter.last7Days,
+              label: Text('7 dias'),
+            ),
+            ButtonSegment(
+              value: _HistoryFilter.last30Days,
+              label: Text('30 dias'),
+            ),
+            ButtonSegment(
+              value: _HistoryFilter.customRange,
+              label: Text('Personalizado'),
+            ),
+          ],
+          selected: {_selectedFilter},
+          showSelectedIcon: false,
+          onSelectionChanged: (selected) async {
+            final next = selected.first;
+            if (next == _HistoryFilter.customRange) {
+              final picked = await _pickCustomRange();
+              if (picked == null) {
+                return;
+              }
+              setState(() {
+                _selectedFilter = _HistoryFilter.customRange;
+                _customRange = picked;
+              });
+              return;
+            }
+            setState(() {
+              _selectedFilter = next;
+            });
+          },
+        ),
+        if (_selectedFilter == _HistoryFilter.customRange) ...[
+          const SizedBox(height: 10),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () async {
+              final picked = await _pickCustomRange();
+              if (picked == null) {
+                return;
+              }
+              setState(() {
+                _customRange = picked;
+              });
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _customRange == null
+                    ? 'Selecionar intervalo'
+                    : '${_shortDateFormatter.format(_customRange!.start)} - ${_shortDateFormatter.format(_customRange!.end)}',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard(ThemeData theme) {
+    final records = _filteredRecords;
+    final totalWorked = _totalWorkedPeriod;
+    final balance = _totalBalancePeriod;
+    final positiveDays = records.where((r) => r.balance.inMinutes > 0).length;
+    final negativeDays = records.where((r) => r.balance.inMinutes < 0).length;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Resumo do período', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSummaryItem(
+                    theme: theme,
+                    label: 'Dias',
+                    value: '${records.length}',
+                  ),
+                ),
+                Expanded(
+                  child: _buildSummaryItem(
+                    theme: theme,
+                    label: 'Horas',
+                    value: _formatDuration(totalWorked),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSummaryItem(
+                    theme: theme,
+                    label: 'Saldo',
+                    value: _formatSignedDuration(balance),
+                  ),
+                ),
+                Expanded(
+                  child: _buildSummaryItem(
+                    theme: theme,
+                    label: 'Pos./Neg.',
+                    value: '$positiveDays / $negativeDays',
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTotalBalanceCard(ThemeData theme) {
-    final isPositive = _totalBalance.inMinutes >= 0;
-    final balanceColor = isPositive ? Colors.greenAccent : Colors.redAccent;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        child: Row(
-          children: [
-            Icon(
-              Icons.account_balance_wallet_rounded,
-              color: theme.colorScheme.secondary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Saldo Acumulado',
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
-            Text(
-              _formatSignedDuration(_totalBalance, withHoursLabel: true),
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: balanceColor,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+  Widget _buildSummaryItem({
+    required ThemeData theme,
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelSmall),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -268,13 +427,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     try {
       final records = await _timeRecordService.getAllRecords();
-      final totalBalance = await _timeRecordService.calculateTotalBalance();
       if (!mounted) {
         return;
       }
       setState(() {
-        _records = records;
-        _totalBalance = totalBalance;
+        _allRecords = records;
       });
     } catch (_) {
       if (mounted) {
@@ -290,78 +447,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _generatePdfReport() async {
-    final availableMonths = _extractAvailableMonths();
-    if (availableMonths.isEmpty) {
+    final records = _filteredRecords;
+    if (records.isEmpty) {
       SnackBarHelper.showWarning(
         context,
         'Não há registros para gerar relatório no momento.',
       );
       return;
-    }
-
-    final selectedMonth = await showModalBottomSheet<_MonthOption>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final theme = Theme.of(context);
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Exportar Relatório',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: availableMonths.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final option = availableMonths[index];
-                    return ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      tileColor: theme.colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.45,
-                      ),
-                      leading: const Icon(Icons.calendar_month_rounded),
-                      title: Text(option.label),
-                      onTap: () => Navigator.of(context).pop(option),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (selectedMonth == null) {
-      return;
-    }
-
-    final monthlyRecords = _records
-        .where(
-          (record) =>
-              record.date.year == selectedMonth.year &&
-              record.date.month == selectedMonth.month,
-        )
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-    Duration monthlyBalance = Duration.zero;
-    for (final record in monthlyRecords) {
-      monthlyBalance += record.balance;
     }
 
     setState(() {
@@ -370,9 +462,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     try {
       await PdfReportService.generateAndPrintReport(
-        monthlyRecords,
-        monthlyBalance,
-        selectedMonth.label,
+        records,
+        _totalBalancePeriod,
+        _currentPeriodLabel(),
         AppSettingsService.current.userName,
       );
     } finally {
@@ -382,32 +474,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
         });
       }
     }
-  }
-
-  List<_MonthOption> _extractAvailableMonths() {
-    final monthMap = <String, _MonthOption>{};
-    for (final record in _records) {
-      final key = _monthKeyFormatter.format(record.date);
-      monthMap.putIfAbsent(
-        key,
-        () => _MonthOption(
-          key: key,
-          year: record.date.year,
-          month: record.date.month,
-          label: _capitalize(_monthLabelFormatter.format(record.date)),
-        ),
-      );
-    }
-
-    final months = monthMap.values.toList()
-      ..sort((a, b) {
-        if (a.year != b.year) {
-          return b.year.compareTo(a.year);
-        }
-        return b.month.compareTo(a.month);
-      });
-
-    return months;
   }
 
   String _formatDuration(Duration duration) {
@@ -434,9 +500,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildRefreshableHistoryList(ThemeData theme) {
+    final records = _filteredRecords;
+
     return RefreshIndicator(
       onRefresh: _refreshHistory,
-      child: _records.isEmpty
+      child: records.isEmpty
           ? ListView(
               padding: const EdgeInsets.only(bottom: 100),
               physics: const AlwaysScrollableScrollPhysics(),
@@ -458,10 +526,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           : ListView.separated(
               padding: const EdgeInsets.only(bottom: 100),
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: _records.length,
+              itemCount: records.length,
               separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                return _buildHistoryRecordCard(theme, _records[index]);
+                return _buildHistoryRecordCard(theme, records[index]);
               },
             ),
     );
@@ -471,18 +539,129 @@ class _HistoryScreenState extends State<HistoryScreen> {
     unawaited(_loadHistoryInternal(showLoading: false));
   }
 
+  List<TimeRecord> get _filteredRecords {
+    final range = _selectedDateRange;
+    return _allRecords
+        .where((record) => _isWithinRange(record.date, range))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  Duration get _totalWorkedPeriod {
+    Duration total = Duration.zero;
+    for (final record in _filteredRecords) {
+      total += record.totalWorkedHours;
+    }
+    return total;
+  }
+
+  Duration get _totalBalancePeriod {
+    Duration total = Duration.zero;
+    for (final record in _filteredRecords) {
+      total += record.balance;
+    }
+    return total;
+  }
+
+  DateTimeRange get _selectedDateRange {
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    switch (_selectedFilter) {
+      case _HistoryFilter.currentMonth:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month, 1),
+          end: end,
+        );
+      case _HistoryFilter.last7Days:
+        final start = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 6));
+        return DateTimeRange(start: start, end: end);
+      case _HistoryFilter.last30Days:
+        final start = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 29));
+        return DateTimeRange(start: start, end: end);
+      case _HistoryFilter.customRange:
+        return _customRange ??
+            DateTimeRange(
+              start: DateTime(now.year, now.month, 1),
+              end: end,
+            );
+    }
+  }
+
+  bool _isWithinRange(DateTime date, DateTimeRange range) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final start = DateTime(range.start.year, range.start.month, range.start.day);
+    final end = DateTime(range.end.year, range.end.month, range.end.day);
+    return !normalized.isBefore(start) && !normalized.isAfter(end);
+  }
+
+  Future<DateTimeRange?> _pickCustomRange() async {
+    final now = DateTime.now();
+    final initial = _customRange ??
+        DateTimeRange(
+          start: DateTime(now.year, now.month, now.day).subtract(
+            const Duration(days: 6),
+          ),
+          end: DateTime(now.year, now.month, now.day),
+        );
+    return showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 5),
+      initialDateRange: initial,
+      locale: const Locale('pt', 'BR'),
+    );
+  }
+
+  String _currentPeriodLabel() {
+    final range = _selectedDateRange;
+    switch (_selectedFilter) {
+      case _HistoryFilter.currentMonth:
+        return 'Mês atual (${DateFormat('MMMM yyyy', 'pt_BR').format(range.start)})';
+      case _HistoryFilter.last7Days:
+        return 'Últimos 7 dias (${_shortDateFormatter.format(range.start)} a ${_shortDateFormatter.format(range.end)})';
+      case _HistoryFilter.last30Days:
+        return 'Últimos 30 dias (${_shortDateFormatter.format(range.start)} a ${_shortDateFormatter.format(range.end)})';
+      case _HistoryFilter.customRange:
+        return 'Período personalizado (${_shortDateFormatter.format(range.start)} a ${_shortDateFormatter.format(range.end)})';
+    }
+  }
+
+  String _formatPunch(DateTime? time) {
+    if (time == null) {
+      return '--:--';
+    }
+    return _timeFormatter.format(time);
+  }
+
+  String _dayTypeLabel(DayType dayType) {
+    switch (dayType) {
+      case DayType.regular:
+        return 'Normal';
+      case DayType.holiday:
+        return 'Feriado';
+      case DayType.dayOff:
+        return 'Folga';
+    }
+  }
+
+  Color _dayTypeColor(DayType dayType) {
+    switch (dayType) {
+      case DayType.regular:
+        return const Color(0xFF8BE9FD);
+      case DayType.holiday:
+        return const Color(0xFF72D7FF);
+      case DayType.dayOff:
+        return const Color(0xFFFFB199);
+    }
+  }
+
 }
 
-class _MonthOption {
-  const _MonthOption({
-    required this.key,
-    required this.year,
-    required this.month,
-    required this.label,
-  });
-
-  final String key;
-  final int year;
-  final int month;
-  final String label;
+enum _HistoryFilter {
+  currentMonth,
+  last7Days,
+  last30Days,
+  customRange,
 }
