@@ -38,6 +38,14 @@ AuraTime e um aplicativo Flutter para controle de jornada com foco em visual pre
 
 O APK gerado fica em `build/app/outputs/flutter-apk/`.
 
+## Persistencia e atualizacoes
+
+- Os dados do AuraTime ficam salvos localmente no Isar e nas preferencias do app.
+- Atualizar o app por cima (upgrade de versao) nao deve apagar os dados existentes.
+- Os dados podem ser perdidos se o usuario desinstalar o app, limpar os dados do aplicativo ou ocorrer uma falha grave de armazenamento.
+- Para maior seguranca, use **Exportar backup** antes de instalar novas versoes.
+- Nao altere nem remova campos do modelo `TimeRecord` sem uma estrategia de migracao e compatibilidade de backup.
+
 ## Downloads
 
 - Ultima versao: **v0.1.0-alpha**

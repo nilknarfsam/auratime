@@ -1,12 +1,10 @@
 import 'package:auratime/core/ui/snackbar_helper.dart';
+import 'package:auratime/services/backup_service.dart';
 import 'package:auratime/services/app_settings_service.dart';
 import 'package:flutter/material.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({
-    super.key,
-    required this.onSettingsSaved,
-  });
+  const SettingsScreen({super.key, required this.onSettingsSaved});
 
   final VoidCallback onSettingsSaved;
 
@@ -21,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late Duration _lunchBreak;
   late Duration _dailyGoal;
   bool _isSaving = false;
+  bool _isBackupBusy = false;
 
   @override
   void initState() {
@@ -159,6 +158,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : const Icon(Icons.save_rounded),
               label: const Text('Salvar configurações'),
             ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Backup e segurança',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Use o backup para preservar seus dados antes de atualizar, trocar de celular ou reinstalar o app.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 10),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.upload_file_rounded),
+                      title: const Text('Exportar backup'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _isBackupBusy ? null : _exportBackup,
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.download_rounded),
+                      title: const Text('Importar backup'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _isBackupBusy ? null : _importBackup,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -212,7 +246,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (selected != null) {
       final duration = Duration(hours: selected.hour, minutes: selected.minute);
       if (duration.inMinutes <= 0) {
-        SnackBarHelper.showWarning(context, 'Escolha uma duração maior que zero.');
+        SnackBarHelper.showWarning(
+          context,
+          'Escolha uma duração maior que zero.',
+        );
         return;
       }
       onSelected(duration);
@@ -247,11 +284,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) {
         return;
       }
-      SnackBarHelper.showError(context, 'Não foi possível salvar as configurações.');
+      SnackBarHelper.showError(
+        context,
+        'Não foi possível salvar as configurações.',
+      );
     } finally {
       if (mounted) {
         setState(() {
           _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportBackup() async {
+    setState(() {
+      _isBackupBusy = true;
+    });
+    try {
+      await BackupService.exportBackup();
+      if (!mounted) {
+        return;
+      }
+      SnackBarHelper.showSuccess(context, 'Backup exportado com sucesso.');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      SnackBarHelper.showError(context, 'Não foi possível exportar o backup.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBackupBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _importBackup() async {
+    final shouldImport = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Importar backup?'),
+          content: const Text(
+            'A importação pode adicionar ou atualizar registros existentes. Seus dados atuais não serão apagados automaticamente.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Importar'),
+            ),
+          ],
+        );
+      },
+    );
+    if (shouldImport != true) {
+      return;
+    }
+
+    setState(() {
+      _isBackupBusy = true;
+    });
+    try {
+      await BackupService.importBackupFromFile();
+      if (!mounted) {
+        return;
+      }
+      final reloaded = AppSettingsService.current;
+      _userNameController.text = reloaded.userName;
+      _defaultEntryTime = TimeOfDay(
+        hour: reloaded.defaultEntryHour,
+        minute: reloaded.defaultEntryMinute,
+      );
+      _defaultExitTime = TimeOfDay(
+        hour: reloaded.defaultExitHour,
+        minute: reloaded.defaultExitMinute,
+      );
+      _lunchBreak = reloaded.lunchBreakDuration;
+      _dailyGoal = reloaded.dailyGoalDuration;
+      setState(() {});
+      widget.onSettingsSaved();
+      SnackBarHelper.showSuccess(context, 'Backup importado com sucesso.');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      SnackBarHelper.showError(context, 'Não foi possível importar o backup.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBackupBusy = false;
         });
       }
     }

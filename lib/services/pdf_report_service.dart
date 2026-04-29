@@ -7,23 +7,28 @@ import 'package:printing/printing.dart';
 class PdfReportService {
   static final DateFormat _dateFormatter = DateFormat('dd/MM/yyyy', 'pt_BR');
   static final DateFormat _timeFormatter = DateFormat('HH:mm', 'pt_BR');
-  static final DateFormat _reportDateFormatter = DateFormat("dd/MM/yyyy 'às' HH:mm", 'pt_BR');
+  static final DateFormat _reportDateFormatter = DateFormat(
+    "dd/MM/yyyy 'às' HH:mm",
+    'pt_BR',
+  );
 
   static Future<void> generateAndPrintReport(
     List<TimeRecord> records,
     Duration totalBalance,
-    String referenceMonth,
+    String periodLabel,
+    String periodFileLabel,
     String userName,
   ) async {
     final pdf = pw.Document();
     final generatedAt = DateTime.now();
+    final safeUserName = userName.trim().isEmpty ? 'Usuario' : userName.trim();
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          _buildHeader(generatedAt, referenceMonth, userName),
+          _buildHeader(generatedAt, periodLabel, safeUserName),
           pw.SizedBox(height: 16),
           _buildTable(records),
           pw.SizedBox(height: 16),
@@ -32,14 +37,17 @@ class PdfReportService {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf.save(),
+    final pdfBytes = await pdf.save();
+    final fileName = _buildPdfFileName(
+      userName: safeUserName,
+      periodLabel: periodFileLabel,
     );
+    await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 
   static pw.Widget _buildHeader(
     DateTime generatedAt,
-    String referenceMonth,
+    String periodLabel,
     String userName,
   ) {
     return pw.Container(
@@ -61,7 +69,7 @@ class PdfReportService {
           ),
           pw.SizedBox(height: 8),
           pw.Text('Usuário: $userName'),
-          pw.Text('Mês de Referência: $referenceMonth'),
+          pw.Text('Período: $periodLabel'),
           pw.Text('Gerado em: ${_reportDateFormatter.format(generatedAt)}'),
         ],
       ),
@@ -86,8 +94,12 @@ class PdfReportService {
 
       return [
         _dateFormatter.format(record.date),
-        record.entryTime != null ? _timeFormatter.format(record.entryTime!) : '--:--',
-        record.exitTime != null ? _timeFormatter.format(record.exitTime!) : '--:--',
+        record.entryTime != null
+            ? _timeFormatter.format(record.entryTime!)
+            : '--:--',
+        record.exitTime != null
+            ? _timeFormatter.format(record.exitTime!)
+            : '--:--',
         statusWithNote,
         _formatSignedDuration(dayBalance),
       ];
@@ -100,7 +112,9 @@ class PdfReportService {
         fontWeight: pw.FontWeight.bold,
         color: PdfColors.white,
       ),
-      headerDecoration: const pw.BoxDecoration(color: PdfColor(0.24, 0.18, 0.55)),
+      headerDecoration: const pw.BoxDecoration(
+        color: PdfColor(0.24, 0.18, 0.55),
+      ),
       cellStyle: const pw.TextStyle(fontSize: 10),
       cellAlignment: pw.Alignment.centerLeft,
       headerAlignment: pw.Alignment.centerLeft,
@@ -111,7 +125,9 @@ class PdfReportService {
 
   static pw.Widget _buildFooter(Duration totalBalance) {
     final isPositive = totalBalance.inMinutes >= 0;
-    final color = isPositive ? PdfColor.fromHex('#2E7D32') : PdfColor.fromHex('#B71C1C');
+    final color = isPositive
+        ? PdfColor.fromHex('#2E7D32')
+        : PdfColor.fromHex('#B71C1C');
 
     return pw.Container(
       width: double.infinity,
@@ -126,10 +142,7 @@ class PdfReportService {
         children: [
           pw.Text(
             'Saldo Acumulado do Mês',
-            style: pw.TextStyle(
-              fontWeight: pw.FontWeight.bold,
-              fontSize: 12,
-            ),
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
           ),
           pw.Text(
             '${_formatSignedDuration(totalBalance)} hrs',
@@ -150,5 +163,40 @@ class PdfReportService {
     final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
     final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
     return '$sign $hours:$minutes';
+  }
+
+  static String _buildPdfFileName({
+    required String userName,
+    required String periodLabel,
+  }) {
+    final rawName = 'AuraTime_${userName}_$periodLabel.pdf';
+    return _sanitizeFileName(rawName);
+  }
+
+  static String _sanitizeFileName(String input) {
+    final withoutAccents = input
+        .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[ÓÒÔÕÖ]'), 'O')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll(RegExp(r'[Ç]'), 'C')
+        .replaceAll(RegExp(r'[ç]'), 'c');
+
+    final normalizedSpaces = withoutAccents.replaceAll(RegExp(r'\s+'), '_');
+    final cleaned = normalizedSpaces.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '');
+    final condensed = cleaned
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'-+'), '-');
+    final trimmed = condensed.replaceAll(RegExp(r'^[_\-.]+|[_\-.]+$'), '');
+    if (trimmed.isEmpty || trimmed == '.pdf') {
+      return 'AuraTime_Relatorio.pdf';
+    }
+    return trimmed;
   }
 }

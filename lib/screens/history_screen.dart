@@ -10,10 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({
-    super.key,
-    required this.refreshListenable,
-  });
+  const HistoryScreen({super.key, required this.refreshListenable});
 
   final ValueListenable<int> refreshListenable;
 
@@ -67,10 +64,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 8),
-                    Text(
-                      'Histórico',
-                      style: theme.textTheme.headlineMedium,
-                    ),
+                    Text('Histórico', style: theme.textTheme.headlineMedium),
                     const Expanded(
                       child: Center(child: CircularProgressIndicator()),
                     ),
@@ -80,10 +74,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 8),
-                    Text(
-                      'Histórico',
-                      style: theme.textTheme.headlineMedium,
-                    ),
+                    Text('Histórico', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: 14),
                     _buildFilterSection(theme),
                     const SizedBox(height: 12),
@@ -96,7 +87,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'history_pdf_report_fab',
-        onPressed: _isLoading || _isGeneratingReport ? null : _generatePdfReport,
+        onPressed: _isLoading || _isGeneratingReport
+            ? null
+            : _generatePdfReport,
         icon: _isGeneratingReport
             ? const SizedBox(
                 width: 16,
@@ -112,7 +105,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildHistoryRecordCard(ThemeData theme, TimeRecord record) {
     final dailyBalance = record.balance;
     final isPositive = dailyBalance.inMinutes >= 0;
-    final balanceColor = isPositive ? const Color(0xFF56F09B) : const Color(0xFFFF8A80);
+    final balanceColor = isPositive
+        ? const Color(0xFF56F09B)
+        : const Color(0xFFFF8A80);
     final statusText = _dayTypeLabel(record.dayType);
     final statusColor = _dayTypeColor(record.dayType);
     final statusBackground = statusColor.withValues(alpha: 0.18);
@@ -126,7 +121,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusBackground,
                     borderRadius: BorderRadius.circular(999),
@@ -229,7 +227,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.35,
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -257,26 +257,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildFilterSection(ThemeData theme) {
+    final isCompact = MediaQuery.sizeOf(context).width < 390;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SegmentedButton<_HistoryFilter>(
-          segments: const [
+          segments: [
             ButtonSegment(
               value: _HistoryFilter.currentMonth,
-              label: Text('Mês atual'),
+              label: const Text(
+                'Mês atual',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             ButtonSegment(
               value: _HistoryFilter.last7Days,
-              label: Text('7 dias'),
+              label: const Text(
+                '7 dias',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             ButtonSegment(
               value: _HistoryFilter.last30Days,
-              label: Text('30 dias'),
+              label: const Text(
+                '30 dias',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             ButtonSegment(
               value: _HistoryFilter.customRange,
-              label: Text('Personalizado'),
+              label: Text(
+                isCompact ? 'Personaliz.' : 'Personalizado',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
           selected: {_selectedFilter},
@@ -316,7 +333,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.35,
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -435,7 +454,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       });
     } catch (_) {
       if (mounted) {
-        SnackBarHelper.showError(context, 'Não foi possível carregar o histórico.');
+        SnackBarHelper.showError(
+          context,
+          'Não foi possível carregar o histórico.',
+        );
       }
     } finally {
       if (mounted) {
@@ -465,6 +487,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         records,
         _totalBalancePeriod,
         _currentPeriodLabel(),
+        _currentPeriodFileLabel(),
         AppSettingsService.current.userName,
       );
     } finally {
@@ -483,7 +506,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return '$hours:$minutes';
   }
 
-  String _formatSignedDuration(Duration duration, {bool withHoursLabel = false}) {
+  String _formatSignedDuration(
+    Duration duration, {
+    bool withHoursLabel = false,
+  }) {
     final sign = duration.inMinutes >= 0 ? '+' : '-';
     final timeText = _formatDuration(duration);
     if (withHoursLabel) {
@@ -568,41 +594,48 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
     switch (_selectedFilter) {
       case _HistoryFilter.currentMonth:
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: end,
-        );
+        return DateTimeRange(start: DateTime(now.year, now.month, 1), end: end);
       case _HistoryFilter.last7Days:
-        final start = DateTime(now.year, now.month, now.day)
-            .subtract(const Duration(days: 6));
+        final start = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(const Duration(days: 6));
         return DateTimeRange(start: start, end: end);
       case _HistoryFilter.last30Days:
-        final start = DateTime(now.year, now.month, now.day)
-            .subtract(const Duration(days: 29));
+        final start = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(const Duration(days: 29));
         return DateTimeRange(start: start, end: end);
       case _HistoryFilter.customRange:
         return _customRange ??
-            DateTimeRange(
-              start: DateTime(now.year, now.month, 1),
-              end: end,
-            );
+            DateTimeRange(start: DateTime(now.year, now.month, 1), end: end);
     }
   }
 
   bool _isWithinRange(DateTime date, DateTimeRange range) {
     final normalized = DateTime(date.year, date.month, date.day);
-    final start = DateTime(range.start.year, range.start.month, range.start.day);
+    final start = DateTime(
+      range.start.year,
+      range.start.month,
+      range.start.day,
+    );
     final end = DateTime(range.end.year, range.end.month, range.end.day);
     return !normalized.isBefore(start) && !normalized.isAfter(end);
   }
 
   Future<DateTimeRange?> _pickCustomRange() async {
     final now = DateTime.now();
-    final initial = _customRange ??
+    final initial =
+        _customRange ??
         DateTimeRange(
-          start: DateTime(now.year, now.month, now.day).subtract(
-            const Duration(days: 6),
-          ),
+          start: DateTime(
+            now.year,
+            now.month,
+            now.day,
+          ).subtract(const Duration(days: 6)),
           end: DateTime(now.year, now.month, now.day),
         );
     return showDateRangePicker(
@@ -625,6 +658,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return 'Últimos 30 dias (${_shortDateFormatter.format(range.start)} a ${_shortDateFormatter.format(range.end)})';
       case _HistoryFilter.customRange:
         return 'Período personalizado (${_shortDateFormatter.format(range.start)} a ${_shortDateFormatter.format(range.end)})';
+    }
+  }
+
+  String _currentPeriodFileLabel() {
+    final range = _selectedDateRange;
+    switch (_selectedFilter) {
+      case _HistoryFilter.currentMonth:
+        return _capitalize(
+          DateFormat('MMMM_yyyy', 'pt_BR').format(range.start),
+        );
+      case _HistoryFilter.last7Days:
+        return 'Ultimos_7_Dias';
+      case _HistoryFilter.last30Days:
+        return 'Ultimos_30_Dias';
+      case _HistoryFilter.customRange:
+        final start = DateFormat('dd-MM-yyyy', 'pt_BR').format(range.start);
+        final end = DateFormat('dd-MM-yyyy', 'pt_BR').format(range.end);
+        return '${start}_a_$end';
     }
   }
 
@@ -656,12 +707,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return const Color(0xFFFFB199);
     }
   }
-
 }
 
-enum _HistoryFilter {
-  currentMonth,
-  last7Days,
-  last30Days,
-  customRange,
-}
+enum _HistoryFilter { currentMonth, last7Days, last30Days, customRange }

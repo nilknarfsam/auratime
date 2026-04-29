@@ -6,10 +6,7 @@ import 'package:path_provider/path_provider.dart';
 enum PunchRecordStatus { checkInRecorded, checkOutRecorded, dayFinalized }
 
 class PunchRecordResult {
-  const PunchRecordResult({
-    required this.status,
-    required this.record,
-  });
+  const PunchRecordResult({required this.status, required this.record});
 
   final PunchRecordStatus status;
   final TimeRecord record;
@@ -34,7 +31,10 @@ class TimeRecordService {
   Future<TimeRecord> getTodayRecord({DateTime? date}) async {
     final isar = _getIsar();
     final day = _normalizeDate(date ?? DateTime.now());
-    final existing = await isar.timeRecords.where().dateEqualTo(day).findFirst();
+    final existing = await isar.timeRecords
+        .where()
+        .dateEqualTo(day)
+        .findFirst();
     return existing ?? TimeRecord.forDate(day);
   }
 
@@ -60,10 +60,16 @@ class TimeRecordService {
     final settings = AppSettingsService.current;
 
     dayRecord.date = day;
-    dayRecord.entryTime =
-        _timeForDay(day, settings.defaultEntryHour, settings.defaultEntryMinute);
-    dayRecord.exitTime =
-        _timeForDay(day, settings.defaultExitHour, settings.defaultExitMinute);
+    dayRecord.entryTime = _timeForDay(
+      day,
+      settings.defaultEntryHour,
+      settings.defaultEntryMinute,
+    );
+    dayRecord.exitTime = _timeForDay(
+      day,
+      settings.defaultExitHour,
+      settings.defaultExitMinute,
+    );
 
     await _saveRecord(dayRecord);
     return dayRecord;
@@ -109,15 +115,36 @@ class TimeRecordService {
     });
   }
 
+  Future<void> upsertRecordByDate(TimeRecord record) async {
+    final isar = _getIsar();
+    final normalizedDate = _normalizeDate(record.date);
+    await isar.writeTxn(() async {
+      final existing = await isar.timeRecords
+          .where()
+          .dateEqualTo(normalizedDate)
+          .findFirst();
+      if (existing != null) {
+        record.id = existing.id;
+      } else {
+        record.id = Isar.autoIncrement;
+      }
+      record.date = normalizedDate;
+      await isar.timeRecords.put(record);
+    });
+  }
+
   Isar _getIsar() {
     final isar = _isar;
     if (isar == null) {
-      throw StateError('Isar não foi inicializado. Chame TimeRecordService.initialize() no main().');
+      throw StateError(
+        'Isar não foi inicializado. Chame TimeRecordService.initialize() no main().',
+      );
     }
     return isar;
   }
 
-  DateTime _normalizeDate(DateTime date) => DateTime(date.year, date.month, date.day);
+  DateTime _normalizeDate(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 
   DateTime _timeForDay(DateTime date, int hour, int minute) {
     return DateTime(date.year, date.month, date.day, hour, minute);
