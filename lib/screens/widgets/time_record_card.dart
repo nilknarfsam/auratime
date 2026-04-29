@@ -21,8 +21,9 @@ class TimeRecordCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isFilled = value != null;
-    final iconColor =
-        isFilled ? theme.colorScheme.secondary : theme.colorScheme.onSurfaceVariant;
+    final iconColor = isFilled
+        ? theme.colorScheme.secondary
+        : theme.colorScheme.onSurfaceVariant;
 
     return Card(
       child: InkWell(
@@ -33,7 +34,9 @@ class TimeRecordCard extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                isFilled ? Icons.check_circle_rounded : Icons.access_time_rounded,
+                isFilled
+                    ? Icons.check_circle_rounded
+                    : Icons.access_time_rounded,
                 color: iconColor,
               ),
               const SizedBox(width: 12),
@@ -43,18 +46,25 @@ class TimeRecordCard extends StatelessWidget {
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                isFilled && value != null
-                    ? timeFormatter.format(value!)
-                    : 'Previsto: $expected',
-                style: isFilled
-                    ? theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      )
-                    : theme.textTheme.bodyMedium,
+              Flexible(
+                child: Text(
+                  isFilled && value != null
+                      ? timeFormatter.format(value!)
+                      : 'Previsto: $expected',
+                  textAlign: TextAlign.end,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: isFilled
+                      ? theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                        )
+                      : theme.textTheme.bodyMedium,
+                ),
               ),
             ],
           ),

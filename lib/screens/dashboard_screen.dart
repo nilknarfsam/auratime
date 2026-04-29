@@ -15,10 +15,7 @@ import 'package:intl/intl.dart';
 enum _RecordField { entry, exit }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({
-    super.key,
-    required this.onHistoryRefreshRequested,
-  });
+  const DashboardScreen({super.key, required this.onHistoryRefreshRequested});
 
   final VoidCallback onHistoryRefreshRequested;
 
@@ -49,7 +46,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 36),
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 36,
+                ),
                 child: IntrinsicHeight(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,9 +69,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ? const CircularProgressIndicator()
                             : PunchButton(
                                 canPunch:
-                                    !_isLoading && _isRegularDay && !_isDayFinalized,
+                                    !_isLoading &&
+                                    _isRegularDay &&
+                                    !_isDayFinalized,
                                 isDayFinalized: _isDayFinalized,
-                                onPressed: !_isLoading && _isRegularDay && !_isDayFinalized
+                                onPressed:
+                                    !_isLoading &&
+                                        _isRegularDay &&
+                                        !_isDayFinalized
                                     ? _recordNow
                                     : null,
                                 pulseAnimation: _pulseAnimation,
@@ -91,9 +95,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           onTap: _isLoading
                               ? null
                               : () => _editRecordTime(
-                                    _RecordField.entry,
-                                    _todayRecord.entryTime,
-                                  ),
+                                  _RecordField.entry,
+                                  _todayRecord.entryTime,
+                                ),
                         ),
                         const SizedBox(height: 12),
                         TimeRecordCard(
@@ -107,9 +111,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           onTap: _isLoading
                               ? null
                               : () => _editRecordTime(
-                                    _RecordField.exit,
-                                    _todayRecord.exitTime,
-                                  ),
+                                  _RecordField.exit,
+                                  _todayRecord.exitTime,
+                                ),
                         ),
                         AnimatedOpacity(
                           duration: const Duration(milliseconds: 350),
@@ -121,7 +125,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: _shouldShowExitPrediction
                                 ? Padding(
                                     padding: const EdgeInsets.only(top: 14),
-                                    child: _buildPredictionBanner(theme, settings),
+                                    child: _buildPredictionBanner(
+                                      theme,
+                                      settings,
+                                    ),
                                   )
                                 : const SizedBox.shrink(),
                           ),
@@ -133,7 +140,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const Spacer(),
                       Align(
                         child: TextButton(
-                          onPressed: _isLoading ? null : _fillWithDefaultSchedule,
+                          onPressed: _isLoading || !_isRegularDay
+                              ? null
+                              : _fillWithDefaultSchedule,
                           child: const Text('Preencher com horários padrões'),
                         ),
                       ),
@@ -195,10 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.flag_circle_rounded,
-            color: theme.colorScheme.primary,
-          ),
+          Icon(Icons.flag_circle_rounded, color: theme.colorScheme.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -227,28 +233,48 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildDayTypeSelector(ThemeData theme) {
-    return SegmentedButton<DayType>(
-      segments: const [
-        ButtonSegment(value: DayType.regular, label: Text('Dia Normal')),
-        ButtonSegment(value: DayType.holiday, label: Text('Feriado')),
-        ButtonSegment(value: DayType.dayOff, label: Text('Folga')),
-      ],
-      selected: {_todayRecord.dayType},
-      showSelectedIcon: false,
-      onSelectionChanged: _isLoading
-          ? null
-          : (selection) {
-              final selectedDayType = selection.first;
-              _onDayTypeChanged(selectedDayType);
-            },
-      style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return theme.colorScheme.primary.withValues(alpha: 0.22);
-          }
-          return theme.colorScheme.surface;
-        }),
-        foregroundColor: WidgetStateProperty.all(theme.colorScheme.onSurface),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SegmentedButton<DayType>(
+        segments: const [
+          ButtonSegment(
+            value: DayType.regular,
+            label: Text(
+              'Dia Normal',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          ButtonSegment(
+            value: DayType.holiday,
+            label: Text(
+              'Feriado',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          ButtonSegment(
+            value: DayType.dayOff,
+            label: Text('Folga', maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+        selected: {_todayRecord.dayType},
+        showSelectedIcon: false,
+        onSelectionChanged: _isLoading
+            ? null
+            : (selection) {
+                final selectedDayType = selection.first;
+                _onDayTypeChanged(selectedDayType);
+              },
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return theme.colorScheme.primary.withValues(alpha: 0.22);
+            }
+            return theme.colorScheme.surface;
+          }),
+          foregroundColor: WidgetStateProperty.all(theme.colorScheme.onSurface),
+        ),
       ),
     );
   }
@@ -264,9 +290,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.55,
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.4)),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.4),
+        ),
       ),
       child: Text(
         message,
@@ -306,7 +336,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         TextButton.icon(
           onPressed: _isLoading ? null : _showNoteDialog,
           icon: const Icon(Icons.edit_note_rounded),
-          label: Text(_todayRecord.hasNote ? 'Editar Observação' : 'Adicionar Observação'),
+          label: Text(
+            _todayRecord.hasNote ? 'Editar Observação' : 'Adicionar Observação',
+          ),
         ),
       ],
     );
@@ -331,7 +363,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       unawaited(syncHomeWidgetStatus());
     } catch (_) {
       if (mounted) {
-        SnackBarHelper.showError(context, 'Não foi possível carregar o dia de hoje.');
+        SnackBarHelper.showError(
+          context,
+          'Não foi possível carregar o dia de hoje.',
+        );
       }
     } finally {
       if (mounted) {
@@ -344,7 +379,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _recordNow() async {
     if (_isDayFinalized) {
-      SnackBarHelper.showWarning(context, 'Seu ponto de hoje já foi finalizado.');
+      SnackBarHelper.showWarning(
+        context,
+        'Seu ponto de hoje já foi finalizado.',
+      );
       return;
     }
 
@@ -362,7 +400,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           _todayRecord = result.record;
           _isLoading = false;
         });
-        SnackBarHelper.showWarning(context, 'Seu ponto de hoje já foi finalizado.');
+        SnackBarHelper.showWarning(
+          context,
+          'Seu ponto de hoje já foi finalizado.',
+        );
         return;
       }
 
@@ -446,12 +487,18 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (!mounted) {
         return;
       }
-      SnackBarHelper.showError(context, 'Não foi possível salvar o tipo de dia.');
+      SnackBarHelper.showError(
+        context,
+        'Não foi possível salvar o tipo de dia.',
+      );
       await _loadTodayRecord();
     }
   }
 
-  Future<void> _editRecordTime(_RecordField field, DateTime? currentValue) async {
+  Future<void> _editRecordTime(
+    _RecordField field,
+    DateTime? currentValue,
+  ) async {
     final selectedTime = await showTimePicker(
       context: context,
       initialTime: currentValue != null
@@ -526,8 +573,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _showNoteDialog() async {
     final rawNote = _todayRecord.note ?? '';
-    final initialNote =
-        rawNote.length > 150 ? rawNote.substring(0, 150) : rawNote;
+    final initialNote = rawNote.length > 150
+        ? rawNote.substring(0, 150)
+        : rawNote;
     final controller = TextEditingController(text: initialNote);
     final result = await showDialog<String>(
       context: context,
@@ -545,7 +593,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               hintText: 'Ex: Compensação de feriado',
               border: const OutlineInputBorder(),
               counterStyle: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.55,
+                ),
                 fontSize: 12,
               ),
             ),
@@ -559,7 +609,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              onPressed: () =>
+                  Navigator.of(context).pop(controller.text.trim()),
               child: const Text('Salvar'),
             ),
           ],
@@ -664,7 +715,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     int workedDays = 0;
 
     for (final record in records) {
-      final day = DateTime(record.date.year, record.date.month, record.date.day);
+      final day = DateTime(
+        record.date.year,
+        record.date.month,
+        record.date.day,
+      );
       if (day.isBefore(weekStart) || day.isAfter(weekEnd)) {
         continue;
       }

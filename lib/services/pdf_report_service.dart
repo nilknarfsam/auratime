@@ -141,7 +141,7 @@ class PdfReportService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           pw.Text(
-            'Saldo Acumulado do Mês',
+            'Saldo do período',
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
           ),
           pw.Text(
@@ -175,6 +175,8 @@ class PdfReportService {
 
   static String _sanitizeFileName(String input) {
     final withoutAccents = input
+        .replaceAll('Ñ', 'N')
+        .replaceAll('ñ', 'n')
         .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
         .replaceAll(RegExp(r'[áàâãä]'), 'a')
         .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')

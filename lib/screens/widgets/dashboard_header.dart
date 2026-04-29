@@ -12,7 +12,10 @@ class DashboardHeader extends StatefulWidget {
 }
 
 class _DashboardHeaderState extends State<DashboardHeader> {
-  final DateFormat _longDateFormatter = DateFormat("EEEE, d 'de' MMMM", 'pt_BR');
+  final DateFormat _longDateFormatter = DateFormat(
+    "EEEE, d 'de' MMMM",
+    'pt_BR',
+  );
   final DateFormat _clockFormatter = DateFormat('HH:mm:ss');
   late final Timer _clockTimer;
   late DateTime _now;
@@ -56,7 +59,12 @@ class _DashboardHeaderState extends State<DashboardHeader> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(greeting, style: theme.textTheme.headlineMedium),
+          Text(
+            greeting,
+            style: theme.textTheme.headlineMedium,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 8),
           Text(
             _clockFormatter.format(_now),

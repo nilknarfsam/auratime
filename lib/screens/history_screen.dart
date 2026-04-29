@@ -261,60 +261,63 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SegmentedButton<_HistoryFilter>(
-          segments: [
-            ButtonSegment(
-              value: _HistoryFilter.currentMonth,
-              label: const Text(
-                'Mês atual',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<_HistoryFilter>(
+            segments: [
+              ButtonSegment(
+                value: _HistoryFilter.currentMonth,
+                label: const Text(
+                  'Mês atual',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            ButtonSegment(
-              value: _HistoryFilter.last7Days,
-              label: const Text(
-                '7 dias',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              ButtonSegment(
+                value: _HistoryFilter.last7Days,
+                label: const Text(
+                  '7 dias',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            ButtonSegment(
-              value: _HistoryFilter.last30Days,
-              label: const Text(
-                '30 dias',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              ButtonSegment(
+                value: _HistoryFilter.last30Days,
+                label: const Text(
+                  '30 dias',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            ButtonSegment(
-              value: _HistoryFilter.customRange,
-              label: Text(
-                isCompact ? 'Personaliz.' : 'Personalizado',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              ButtonSegment(
+                value: _HistoryFilter.customRange,
+                label: Text(
+                  isCompact ? 'Personaliz.' : 'Personalizado',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
-          selected: {_selectedFilter},
-          showSelectedIcon: false,
-          onSelectionChanged: (selected) async {
-            final next = selected.first;
-            if (next == _HistoryFilter.customRange) {
-              final picked = await _pickCustomRange();
-              if (picked == null) {
+            ],
+            selected: {_selectedFilter},
+            showSelectedIcon: false,
+            onSelectionChanged: (selected) async {
+              final next = selected.first;
+              if (next == _HistoryFilter.customRange) {
+                final picked = await _pickCustomRange();
+                if (picked == null) {
+                  return;
+                }
+                setState(() {
+                  _selectedFilter = _HistoryFilter.customRange;
+                  _customRange = picked;
+                });
                 return;
               }
               setState(() {
-                _selectedFilter = _HistoryFilter.customRange;
-                _customRange = picked;
+                _selectedFilter = next;
               });
-              return;
-            }
-            setState(() {
-              _selectedFilter = next;
-            });
-          },
+            },
+          ),
         ),
         if (_selectedFilter == _HistoryFilter.customRange) ...[
           const SizedBox(height: 10),

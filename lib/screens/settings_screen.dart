@@ -1,6 +1,8 @@
 import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:auratime/services/backup_service.dart';
 import 'package:auratime/services/app_settings_service.dart';
+import 'package:auratime/services/temporary_april_2026_restore.dart';
+import 'package:auratime/services/time_record_service.dart';
 import 'package:flutter/material.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -20,6 +22,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late Duration _dailyGoal;
   bool _isSaving = false;
   bool _isBackupBusy = false;
+  bool _isAprilRestoreBusy = false;
+
+  final TimeRecordService _timeRecordService = TimeRecordService();
 
   @override
   void initState() {
@@ -188,6 +193,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: const Text('Importar backup'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: _isBackupBusy ? null : _importBackup,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // TEMPORÁRIO — remover Card + método após restauração via backup.
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Restauração pontual',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Uso único para recuperar dias perdidos em testes. Remover do app depois.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed:
+                          _isAprilRestoreBusy || _isSaving || _isBackupBusy
+                          ? null
+                          : _restoreApril2026,
+                      icon: _isAprilRestoreBusy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.history_edu_rounded),
+                      label: const Text('Restaurar dados Abril/2026'),
                     ),
                   ],
                 ),
@@ -379,6 +420,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() {
           _isBackupBusy = false;
+        });
+      }
+    }
+  }
+
+  /// TEMPORÁRIO — remover junto com [TemporaryApril2026Restore].
+  Future<void> _restoreApril2026() async {
+    setState(() {
+      _isAprilRestoreBusy = true;
+    });
+    try {
+      await TemporaryApril2026Restore.restoreLostRecords(_timeRecordService);
+      if (!mounted) {
+        return;
+      }
+      widget.onSettingsSaved();
+      SnackBarHelper.showSuccess(
+        context,
+        'Registros de Abril/2026 restaurados com sucesso.',
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      SnackBarHelper.showError(
+        context,
+        'Não foi possível restaurar os registros.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAprilRestoreBusy = false;
         });
       }
     }

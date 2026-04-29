@@ -159,6 +159,8 @@ class BackupService {
 
   static String _sanitizeFileName(String input) {
     final withoutAccents = input
+        .replaceAll('Ñ', 'N')
+        .replaceAll('ñ', 'n')
         .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
         .replaceAll(RegExp(r'[áàâãä]'), 'a')
         .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
