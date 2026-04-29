@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 
-const String _androidWidgetQualifiedName = 'com.seunome.auratime.AuratimeWidgetProvider';
+const String _androidWidgetQualifiedName = 'com.auratime.app.AuratimeWidgetProvider';
 
 final DateFormat _widgetTimeFormat = DateFormat('HH:mm');
 

@@ -1,4 +1,4 @@
-package com.seunome.auratime
+package com.auratime.app
 
 import android.appwidget.AppWidgetManager
 import android.content.Context

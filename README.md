@@ -1,17 +1,39 @@
-# auratime
+# AuraTime
 
-A new Flutter project.
+AuraTime e um aplicativo Flutter para controle de jornada com foco em visual premium, rapidez no registro e acompanhamento de saldo de horas.
 
-## Getting Started
+## Funcionalidades atuais
 
-This project is a starting point for a Flutter application.
+- Dashboard com registro de ponto de entrada/saida.
+- Status do dia, progresso da jornada e previsao de saida.
+- Resumo semanal direto no dashboard.
+- Historico com filtros por periodo e resumo consolidado.
+- Exportacao de relatorio em PDF.
+- Configuracoes de usuario e jornada (nome, horarios, almoco e meta diaria).
+- Persistencia local com Isar e SharedPreferences.
+- Widget Android para atalho de batida de ponto.
 
-A few resources to get you started if this is your first Flutter project:
+## Prints (em breve)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- [ ] Dashboard premium
+- [ ] Historico com filtros
+- [ ] Configuracoes
+- [ ] Relatorio PDF
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Como rodar
+
+1. Instale o Flutter SDK e valide com:
+   - `flutter doctor`
+2. Instale dependencias:
+   - `flutter pub get`
+3. Execute no dispositivo/emulador:
+   - `flutter run`
+
+## Como gerar APK
+
+- Build debug:
+  - `flutter build apk --debug`
+- Build release:
+  - `flutter build apk --release`
+
+O APK gerado fica em `build/app/outputs/flutter-apk/`.

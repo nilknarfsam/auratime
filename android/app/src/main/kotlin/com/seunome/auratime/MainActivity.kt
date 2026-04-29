@@ -1,4 +1,4 @@
-package com.seunome.auratime
+package com.auratime.app
 
 import io.flutter.embedding.android.FlutterActivity
 
