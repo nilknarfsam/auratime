@@ -12,7 +12,12 @@ import 'package:intl/intl.dart';
 enum _RecordField { entry, exit }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({
+    super.key,
+    required this.onHistoryRefreshRequested,
+  });
+
+  final VoidCallback onHistoryRefreshRequested;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -370,6 +375,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
+      widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Ponto registrado com sucesso!');
     } catch (_) {
       if (!mounted) {
@@ -398,6 +404,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
+      widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Horários padrões aplicados!');
     } catch (_) {
       if (!mounted) {
@@ -429,6 +436,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
+      widget.onHistoryRefreshRequested();
     } catch (_) {
       if (!mounted) {
         return;
@@ -496,6 +504,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
+      widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Horário atualizado com sucesso!');
     } catch (_) {
       if (!mounted) {
@@ -570,6 +579,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
+      widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Observação atualizada com sucesso!');
     } catch (_) {
       if (!mounted) {

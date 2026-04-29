@@ -1,13 +1,21 @@
+import 'dart:async';
+
 import 'package:auratime/config/app_config.dart';
 import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/services/pdf_report_service.dart';
 import 'package:auratime/services/time_record_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  const HistoryScreen({
+    super.key,
+    required this.refreshListenable,
+  });
+
+  final ValueListenable<int> refreshListenable;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -27,6 +35,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() {
     super.initState();
     _loadHistory();
+    widget.refreshListenable.addListener(_onExternalRefreshRequested);
+  }
+
+  @override
+  void didUpdateWidget(covariant HistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable.removeListener(_onExternalRefreshRequested);
+      widget.refreshListenable.addListener(_onExternalRefreshRequested);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable.removeListener(_onExternalRefreshRequested);
+    super.dispose();
   }
 
   @override
@@ -62,34 +86,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     const SizedBox(height: 14),
                     _buildTotalBalanceCard(theme),
                     const SizedBox(height: 12),
-                    Expanded(
-                      child: _records.isEmpty
-                          ? ListView(
-                              padding: const EdgeInsets.only(bottom: 100),
-                              children: [
-                                Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 20,
-                                    ),
-                                    child: Text(
-                                      'Nenhum registro salvo ainda.',
-                                      style: theme.textTheme.bodyMedium,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.only(bottom: 100),
-                              itemCount: _records.length,
-                              separatorBuilder: (_, _) => const SizedBox(height: 12),
-                              itemBuilder: (context, index) {
-                                return _buildHistoryRecordCard(theme, _records[index]);
-                              },
-                            ),
-                    ),
+                    Expanded(child: _buildRefreshableHistoryList(theme)),
                   ],
                 ),
         ),
@@ -255,6 +252,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _loadHistory() async {
+    return _loadHistoryInternal(showLoading: true);
+  }
+
+  Future<void> _refreshHistory() async {
+    await _loadHistoryInternal(showLoading: false);
+  }
+
+  Future<void> _loadHistoryInternal({required bool showLoading}) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
     try {
       final records = await _timeRecordService.getAllRecords();
       final totalBalance = await _timeRecordService.calculateTotalBalance();
@@ -281,6 +292,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _generatePdfReport() async {
     final availableMonths = _extractAvailableMonths();
     if (availableMonths.isEmpty) {
+      SnackBarHelper.showWarning(
+        context,
+        'Não há registros para gerar relatório no momento.',
+      );
       return;
     }
 
@@ -416,6 +431,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return text;
     }
     return '${text[0].toUpperCase()}${text.substring(1)}';
+  }
+
+  Widget _buildRefreshableHistoryList(ThemeData theme) {
+    return RefreshIndicator(
+      onRefresh: _refreshHistory,
+      child: _records.isEmpty
+          ? ListView(
+              padding: const EdgeInsets.only(bottom: 100),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    child: Text(
+                      'Nenhum registro salvo ainda.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.only(bottom: 100),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: _records.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                return _buildHistoryRecordCard(theme, _records[index]);
+              },
+            ),
+    );
+  }
+
+  void _onExternalRefreshRequested() {
+    unawaited(_loadHistoryInternal(showLoading: false));
   }
 
 }

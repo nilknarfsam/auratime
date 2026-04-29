@@ -11,6 +11,13 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  final ValueNotifier<int> _historyRefreshTrigger = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _historyRefreshTrigger.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,9 +26,13 @@ class _MainNavigationState extends State<MainNavigation> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: const [
-          DashboardScreen(),
-          HistoryScreen(),
+        children: [
+          DashboardScreen(
+            onHistoryRefreshRequested: _requestHistoryRefresh,
+          ),
+          HistoryScreen(
+            refreshListenable: _historyRefreshTrigger,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -48,5 +59,9 @@ class _MainNavigationState extends State<MainNavigation> {
         ],
       ),
     );
+  }
+
+  void _requestHistoryRefresh() {
+    _historyRefreshTrigger.value++;
   }
 }
