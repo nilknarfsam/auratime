@@ -131,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1700),
     )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 1, end: 1.05).animate(
+    _pulseAnimation = Tween<double>(begin: 1, end: 1.025).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
   }
@@ -163,42 +163,50 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildPunchButton(ThemeData theme) {
     final primary = theme.colorScheme.primary;
     final secondary = theme.colorScheme.secondary;
+    final canPunch = !_isLoading && _isRegularDay && !_isDayFinalized;
+    final backgroundColor = canPunch
+        ? theme.colorScheme.surfaceContainerHighest
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45);
+    final foregroundColor =
+        canPunch ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant;
 
-    return ScaleTransition(
-      scale: _pulseAnimation,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: primary.withValues(alpha: 0.45),
-              blurRadius: 42,
-              spreadRadius: 8,
-            ),
-            BoxShadow(
-              color: secondary.withValues(alpha: 0.22),
-              blurRadius: 56,
-              spreadRadius: 6,
-            ),
-          ],
-        ),
-        child: SizedBox(
-          width: 220,
-          height: 220,
+    final button = DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: canPunch
+            ? [
+                BoxShadow(
+                  color: primary.withValues(alpha: 0.26),
+                  blurRadius: 24,
+                  spreadRadius: 3,
+                ),
+                BoxShadow(
+                  color: secondary.withValues(alpha: 0.13),
+                  blurRadius: 34,
+                  spreadRadius: 2,
+                ),
+              ]
+            : const [],
+      ),
+      child: SizedBox(
+        width: 182,
+        height: 182,
+        child: Opacity(
+          opacity: canPunch ? 1 : 0.85,
           child: FloatingActionButton(
             heroTag: 'punch_now_button',
             elevation: 0,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            foregroundColor: theme.colorScheme.onSurface,
-            onPressed: _isLoading || !_isRegularDay ? null : _recordNow,
+            backgroundColor: backgroundColor,
+            foregroundColor: foregroundColor,
+            onPressed: canPunch ? _recordNow : null,
             shape: const CircleBorder(),
-            child: const Padding(
-              padding: EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
               child: Text(
-                'Bater Ponto Agora',
+                _isDayFinalized ? 'Dia finalizado' : 'Bater Ponto Agora',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 21,
+                style: const TextStyle(
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   height: 1.25,
                 ),
@@ -208,6 +216,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
     );
+
+    if (!canPunch) {
+      return button;
+    }
+
+    return ScaleTransition(scale: _pulseAnimation, child: button);
   }
 
   Widget _buildRecordCard({
@@ -422,16 +436,31 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _recordNow() async {
+    if (_isDayFinalized) {
+      _showErrorSnackBar('Seu ponto de hoje já foi finalizado.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
     try {
-      final updatedRecord = await _timeRecordService.recordCurrentTime();
+      final result = await _timeRecordService.recordCurrentTime();
       if (!mounted) {
         return;
       }
+
+      if (result.status == PunchRecordStatus.dayFinalized) {
+        setState(() {
+          _todayRecord = result.record;
+          _isLoading = false;
+        });
+        _showErrorSnackBar('Seu ponto de hoje já foi finalizado.');
+        return;
+      }
+
       setState(() {
-        _todayRecord = updatedRecord;
+        _todayRecord = result.record;
         _isLoading = false;
       });
       unawaited(syncHomeWidgetStatus());
@@ -716,4 +745,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   bool get _isRegularDay => _todayRecord.dayType == DayType.regular;
+
+  bool get _isDayFinalized =>
+      _todayRecord.entryTime != null && _todayRecord.exitTime != null;
 }

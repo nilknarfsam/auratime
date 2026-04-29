@@ -2,6 +2,18 @@ import 'package:auratime/models/time_record.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
+enum PunchRecordStatus { checkInRecorded, checkOutRecorded, dayFinalized }
+
+class PunchRecordResult {
+  const PunchRecordResult({
+    required this.status,
+    required this.record,
+  });
+
+  final PunchRecordStatus status;
+  final TimeRecord record;
+}
+
 class TimeRecordService {
   static const int defaultEntryHour = 7;
   static const int defaultEntryMinute = 0;
@@ -58,23 +70,32 @@ class TimeRecordService {
     return dayRecord;
   }
 
-  Future<TimeRecord> recordCurrentTime({DateTime? now}) async {
+  Future<PunchRecordResult> recordCurrentTime({DateTime? now}) async {
     final currentTime = now ?? DateTime.now();
     final dayRecord = await getTodayRecord(date: currentTime);
 
     if (dayRecord.entryTime == null) {
       dayRecord.entryTime = currentTime;
       await _saveRecord(dayRecord);
-      return dayRecord;
+      return PunchRecordResult(
+        status: PunchRecordStatus.checkInRecorded,
+        record: dayRecord,
+      );
     }
 
     if (dayRecord.exitTime == null) {
       dayRecord.exitTime = currentTime;
       await _saveRecord(dayRecord);
-      return dayRecord;
+      return PunchRecordResult(
+        status: PunchRecordStatus.checkOutRecorded,
+        record: dayRecord,
+      );
     }
 
-    return dayRecord;
+    return PunchRecordResult(
+      status: PunchRecordStatus.dayFinalized,
+      record: dayRecord,
+    );
   }
 
   Future<TimeRecord> saveRecord(TimeRecord record) async {
