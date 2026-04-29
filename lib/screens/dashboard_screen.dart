@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/screens/widgets/punch_button.dart';
 import 'package:auratime/screens/widgets/time_record_card.dart';
+import 'package:auratime/services/app_settings_service.dart';
 import 'package:auratime/services/time_record_service.dart';
 import 'package:auratime/services/widget_service.dart';
 import 'package:intl/intl.dart';
@@ -39,6 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final settings = AppSettingsService.current;
 
     return Scaffold(
       body: SafeArea(
@@ -75,8 +77,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           label: 'Entrada',
                           value: _todayRecord.entryTime,
                           expected: _formatExpectedTime(
-                            TimeRecordService.defaultEntryHour,
-                            TimeRecordService.defaultEntryMinute,
+                            settings.defaultEntryHour,
+                            settings.defaultEntryMinute,
                           ),
                           timeFormatter: _timeFormatter,
                           onTap: _isLoading
@@ -91,8 +93,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           label: 'Saída',
                           value: _todayRecord.exitTime,
                           expected: _formatExpectedTime(
-                            TimeRecordService.defaultExitHour,
-                            TimeRecordService.defaultExitMinute,
+                            settings.defaultExitHour,
+                            settings.defaultExitMinute,
                           ),
                           timeFormatter: _timeFormatter,
                           onTap: _isLoading
@@ -112,7 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: _shouldShowExitPrediction
                                 ? Padding(
                                     padding: const EdgeInsets.only(top: 14),
-                                    child: _buildPredictionBanner(theme),
+                                    child: _buildPredictionBanner(theme, settings),
                                   )
                                 : const SizedBox.shrink(),
                           ),
@@ -120,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 14),
                         _buildNoteSection(theme),
                       ] else
-                        _buildSpecialDayMessage(theme),
+                        _buildSpecialDayMessage(theme, settings),
                       const Spacer(),
                       Align(
                         child: TextButton(
@@ -186,7 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildPredictionBanner(ThemeData theme) {
+  Widget _buildPredictionBanner(ThemeData theme, AppSettings settings) {
     final predictedExit = _todayRecord.predictedExitTime;
     if (predictedExit == null) {
       return const SizedBox.shrink();
@@ -222,7 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Jornada de 8h48m + 1h de almoço',
+                  'Jornada de ${_formatDuration(settings.dailyGoalDuration)} + ${_formatDuration(settings.lunchBreakDuration)} de almoço',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -262,11 +264,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildSpecialDayMessage(ThemeData theme) {
+  Widget _buildSpecialDayMessage(ThemeData theme, AppSettings settings) {
     final isHoliday = _todayRecord.dayType == DayType.holiday;
+    final dailyGoalText = _formatDuration(settings.dailyGoalDuration);
     final message = isHoliday
         ? 'Aproveite seu Feriado!'
-        : 'Aproveite sua Folga! (-08:48h no banco)';
+        : 'Aproveite sua Folga! (-$dailyGoalText no banco)';
 
     return Container(
       width: double.infinity,
@@ -614,6 +617,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   String _formatExpectedTime(int hour, int minute) {
     return _timeFormatter.format(DateTime(2000, 1, 1, hour, minute));
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalMinutes = duration.inMinutes.abs();
+    final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+    final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
   }
 
   bool get _shouldShowExitPrediction {

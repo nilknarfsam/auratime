@@ -1,5 +1,6 @@
 import 'package:auratime/screens/dashboard_screen.dart';
 import 'package:auratime/screens/history_screen.dart';
+import 'package:auratime/screens/settings_screen.dart';
 import 'package:flutter/material.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -33,6 +34,9 @@ class _MainNavigationState extends State<MainNavigation> {
           HistoryScreen(
             refreshListenable: _historyRefreshTrigger,
           ),
+          SettingsScreen(
+            onSettingsSaved: _onSettingsSaved,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -56,6 +60,11 @@ class _MainNavigationState extends State<MainNavigation> {
             selectedIcon: Icon(Icons.insights_rounded),
             label: 'Histórico',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.tune_outlined),
+            selectedIcon: Icon(Icons.tune_rounded),
+            label: 'Configurações',
+          ),
         ],
       ),
     );
@@ -63,5 +72,10 @@ class _MainNavigationState extends State<MainNavigation> {
 
   void _requestHistoryRefresh() {
     _historyRefreshTrigger.value++;
+  }
+
+  void _onSettingsSaved() {
+    _requestHistoryRefresh();
+    setState(() {});
   }
 }

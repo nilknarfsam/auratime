@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:auratime/screens/main_navigation.dart';
+import 'package:auratime/services/app_settings_service.dart';
 import 'package:auratime/services/time_record_service.dart';
 import 'package:auratime/services/widget_service.dart';
 import 'package:auratime/theme/app_theme.dart';
@@ -11,6 +12,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pt_BR');
   Intl.defaultLocale = 'pt_BR';
+  await AppSettingsService.initialize();
   await TimeRecordService.initialize();
   await HomeWidget.registerInteractivityCallback(backgroundCallback);
   await syncHomeWidgetStatus();

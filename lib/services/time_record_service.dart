@@ -1,4 +1,5 @@
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/services/app_settings_service.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -15,11 +16,6 @@ class PunchRecordResult {
 }
 
 class TimeRecordService {
-  static const int defaultEntryHour = 7;
-  static const int defaultEntryMinute = 0;
-  static const int defaultExitHour = 16;
-  static const int defaultExitMinute = 48;
-
   static Isar? _isar;
 
   static Future<void> initialize() async {
@@ -61,10 +57,13 @@ class TimeRecordService {
   Future<TimeRecord> fillWithDefaultSchedule({DateTime? date}) async {
     final dayRecord = await getTodayRecord(date: date);
     final day = _normalizeDate(date ?? DateTime.now());
+    final settings = AppSettingsService.current;
 
     dayRecord.date = day;
-    dayRecord.entryTime = _timeForDay(day, defaultEntryHour, defaultEntryMinute);
-    dayRecord.exitTime = _timeForDay(day, defaultExitHour, defaultExitMinute);
+    dayRecord.entryTime =
+        _timeForDay(day, settings.defaultEntryHour, settings.defaultEntryMinute);
+    dayRecord.exitTime =
+        _timeForDay(day, settings.defaultExitHour, settings.defaultExitMinute);
 
     await _saveRecord(dayRecord);
     return dayRecord;

@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:auratime/config/app_config.dart';
 import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/services/app_settings_service.dart';
 import 'package:auratime/services/pdf_report_service.dart';
 import 'package:auratime/services/time_record_service.dart';
 import 'package:flutter/foundation.dart';
@@ -373,7 +373,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         monthlyRecords,
         monthlyBalance,
         selectedMonth.label,
-        AppConfig.reportUserName,
+        AppSettingsService.current.userName,
       );
     } finally {
       if (mounted) {

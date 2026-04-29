@@ -1,4 +1,5 @@
 import 'package:isar/isar.dart';
+import 'package:auratime/services/app_settings_service.dart';
 
 part 'time_record.g.dart';
 
@@ -6,8 +7,6 @@ enum DayType { regular, holiday, dayOff }
 
 @collection
 class TimeRecord {
-  static const Duration dailyGoal = Duration(hours: 8, minutes: 48);
-
   TimeRecord({
     this.entryTime,
     this.exitTime,
@@ -31,18 +30,20 @@ class TimeRecord {
 
   @ignore
   Duration get totalWorkedHours {
+    final lunchBreak = AppSettingsService.current.lunchBreakDuration;
     if (entryTime != null && exitTime != null && exitTime!.isAfter(entryTime!)) {
       final grossDuration = exitTime!.difference(entryTime!);
-      if (grossDuration <= const Duration(hours: 1)) {
+      if (grossDuration <= lunchBreak) {
         return Duration.zero;
       }
-      return grossDuration - const Duration(hours: 1);
+      return grossDuration - lunchBreak;
     }
     return Duration.zero;
   }
 
   @ignore
   Duration get balance {
+    final dailyGoal = AppSettingsService.current.dailyGoalDuration;
     if (dayType == DayType.holiday) {
       return Duration.zero;
     }
@@ -63,7 +64,9 @@ class TimeRecord {
     if (entryTime == null) {
       return null;
     }
-    return entryTime!.add(const Duration(hours: 9, minutes: 48));
+    final settings = AppSettingsService.current;
+    final totalJourney = settings.dailyGoalDuration + settings.lunchBreakDuration;
+    return entryTime!.add(totalJourney);
   }
 
   @ignore
