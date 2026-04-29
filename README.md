@@ -37,3 +37,11 @@ AuraTime e um aplicativo Flutter para controle de jornada com foco em visual pre
   - `flutter build apk --release`
 
 O APK gerado fica em `build/app/outputs/flutter-apk/`.
+
+## Downloads
+
+- Ultima versao: **v0.1.0-alpha**
+- APK debug de teste: `build/app/outputs/flutter-apk/app-debug.apk`
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
+
+> Em breve: link publico de download no GitHub Releases.
