@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:auratime/domain/work_schedule/daily_status_engine.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
-import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/services/app_settings_service.dart';
 import 'package:flutter/material.dart';
@@ -57,9 +57,10 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
     final engine = WorkScheduleEngine(settings.workDayRule);
     final progress = _todayProgress(settings);
     final workedToday = _workedDurationToday(settings);
-    final dayType = engine.getDayType(widget.todayRecord.date);
-    final status = _statusText(dayType);
-    final statusColor = _statusColor(theme);
+    final statusResult = DailyStatusEngine(
+      workScheduleEngine: engine,
+    ).evaluate(now: _now, todayRecord: widget.todayRecord);
+    final statusColor = _statusColor(theme, statusResult.severity);
     final predictedExit = _predictedExit(settings);
     final expectedDuration = engine.calculateExpectedDuration(widget.todayRecord.date);
 
@@ -74,7 +75,7 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Status do dia: $status',
+                    statusResult.message,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: statusColor,
@@ -148,45 +149,19 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
     );
   }
 
-  String _statusText(WorkDayType dayType) {
-    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
-    if (dayType == WorkDayType.holiday) {
-      return 'Feriado';
+  Color _statusColor(ThemeData theme, DailyStatusSeverity severity) {
+    switch (severity) {
+      case DailyStatusSeverity.success:
+        return const Color(0xFF56F09B);
+      case DailyStatusSeverity.info:
+        return theme.colorScheme.secondary;
+      case DailyStatusSeverity.warning:
+        return const Color(0xFFFFD166);
+      case DailyStatusSeverity.danger:
+        return const Color(0xFFFF8A80);
+      case DailyStatusSeverity.neutral:
+        return theme.colorScheme.onSurfaceVariant;
     }
-    if (dayType == WorkDayType.compensatoryDayOff) {
-      return engine.hasExplicitRuleForDate(widget.todayRecord.date)
-          ? 'Folga compensatória'
-          : 'Folga';
-    }
-    if (dayType == WorkDayType.holidayWorkedSwap) {
-      return 'Troca';
-    }
-    if (dayType == WorkDayType.saturdayCompensation) {
-      return 'Sábado compensado';
-    }
-    final record = widget.todayRecord;
-    if (record.entryTime == null) {
-      return 'Aguardando entrada';
-    }
-    if (record.exitTime == null) {
-      return 'Expediente em andamento';
-    }
-    return 'Dia finalizado';
-  }
-
-  Color _statusColor(ThemeData theme) {
-    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
-    final status = _statusText(engine.getDayType(widget.todayRecord.date));
-    if (status == 'Dia finalizado') {
-      return const Color(0xFF56F09B);
-    }
-    if (status == 'Expediente em andamento') {
-      return theme.colorScheme.secondary;
-    }
-    if (status == 'Aguardando entrada') {
-      return const Color(0xFFFFD166);
-    }
-    return theme.colorScheme.onSurfaceVariant;
   }
 
   Duration _workedDurationToday(AppSettings settings) {
