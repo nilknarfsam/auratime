@@ -14,6 +14,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const double _cardRadius = 20;
+  static const EdgeInsets _cardPadding = EdgeInsets.all(14);
+
   late final TextEditingController _userNameController;
   late TimeOfDay _defaultEntryTime;
   late TimeOfDay _defaultExitTime;
@@ -66,6 +69,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final sectionTitleStyle = theme.textTheme.titleMedium?.copyWith(
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+    );
+    final subtleTextStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -76,17 +86,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             Text(
               'Personalize seus dados e jornada padrão.',
-              style: theme.textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(_cardRadius),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: _cardPadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Perfil', style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 12),
+                    Text('Perfil', style: sectionTitleStyle),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: _userNameController,
                       maxLength: 40,
@@ -100,24 +115,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(_cardRadius),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: _cardPadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Jornada de trabalho',
-                      style: theme.textTheme.titleMedium,
+                      style: sectionTitleStyle,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Turno padrão'),
-                      subtitle: Text(_shiftTypeLabel(_defaultShiftType)),
+                      title: const Row(
+                        children: [
+                          Icon(Icons.schedule_rounded, size: 16),
+                          SizedBox(width: 6),
+                          Text('Turno padrão'),
+                        ],
+                      ),
                       trailing: DropdownButton<ShiftType>(
                         value: _defaultShiftType,
+                        isDense: true,
                         onChanged: _isSaving
                             ? null
                             : (value) {
@@ -128,19 +152,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   _defaultShiftType = value;
                                 });
                               },
-                        items: ShiftType.values
-                            .map(
-                              (item) => DropdownMenuItem(
-                                value: item,
-                                child: Text(_shiftTypeLabel(item)),
+                        selectedItemBuilder: (context) {
+                          return ShiftType.values
+                              .map(
+                                (item) => Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _shiftTitle(item),
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList();
+                        },
+                        items: ShiftType.values.map((item) {
+                          return DropdownMenuItem(
+                            value: item,
+                            child: SizedBox(
+                              width: 210,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _shiftTitle(item),
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _shiftRange(item),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            )
-                            .toList(),
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Habilitar sábado compensação'),
+                      dense: true,
+                      visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+                      title: Text(
+                        'Habilitar sábado compensação',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       value: _saturdayCompensationEnabled,
                       onChanged: _isSaving
                           ? null
@@ -152,7 +225,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Usar feriados nacionais do Brasil'),
+                      dense: true,
+                      visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+                      title: Text(
+                        'Usar feriados nacionais do Brasil',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       value: _useBrazilNationalHolidays,
                       onChanged: _isSaving
                           ? null
@@ -164,7 +244,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Usar feriados de Manaus/Amazonas'),
+                      dense: true,
+                      visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+                      title: Text(
+                        'Usar feriados de Manaus/Amazonas',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       value: _useManausAmazonasHolidays,
                       onChanged: _isSaving
                           ? null
@@ -202,43 +289,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     Text(
                       'Use regras explícitas para exceções reais de fábrica. Finais de semana sem regra continuam como folga padrão.',
-                      style: theme.textTheme.bodySmall,
+                      style: subtleTextStyle,
                     ),
                     const SizedBox(height: 10),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 12,
+                      runSpacing: 12,
                       children: [
-                        OutlinedButton(
+                        _buildCalendarRuleButton(
+                          label: 'Sábado trabalhado',
                           onPressed: _isSaving
                               ? null
                               : () => _addCompanyRule(WorkDayType.saturdayCompensation),
-                          child: const Text('Sábado trabalhado'),
                         ),
-                        OutlinedButton(
+                        _buildCalendarRuleButton(
+                          label: 'Feriado trabalhado por troca',
                           onPressed: _isSaving
                               ? null
                               : () => _addCompanyRule(WorkDayType.holidayWorkedSwap),
-                          child: const Text('Feriado trabalhado por troca'),
                         ),
-                        OutlinedButton(
+                        _buildCalendarRuleButton(
+                          label: 'Folga compensatória',
                           onPressed: _isSaving
                               ? null
                               : () =>
                                   _addCompanyRule(WorkDayType.compensatoryDayOff),
-                          child: const Text('Folga compensatória'),
                         ),
-                        OutlinedButton(
+                        _buildCalendarRuleButton(
+                          label: 'Feriado',
                           onPressed: _isSaving
                               ? null
                               : () => _addCompanyRule(WorkDayType.holiday),
-                          child: const Text('Feriado'),
                         ),
-                        OutlinedButton(
+                        _buildCalendarRuleButton(
+                          label: 'Dia normal por exceção',
                           onPressed: _isSaving
                               ? null
                               : () => _addCompanyRule(WorkDayType.regular),
-                          child: const Text('Dia normal por exceção'),
                         ),
                       ],
                     ),
@@ -301,7 +388,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             FilledButton.icon(
               onPressed: _isSaving ? null : _save,
               icon: _isSaving
@@ -313,23 +400,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : const Icon(Icons.save_rounded),
               label: const Text('Salvar configurações'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(_cardRadius),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: _cardPadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Backup e segurança',
-                      style: theme.textTheme.titleMedium,
+                      style: sectionTitleStyle,
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Use o backup para preservar seus dados antes de atualizar, trocar de celular ou reinstalar o app.',
-                      style: theme.textTheme.bodySmall,
+                      style: subtleTextStyle,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.upload_file_rounded),
@@ -364,9 +454,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(label),
-      subtitle: Text(value, style: theme.textTheme.bodyMedium),
+      subtitle: Text(
+        value,
+        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+      ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: _isSaving ? null : onTap,
+    );
+  }
+
+  Widget _buildCalendarRuleButton({
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    final theme = Theme.of(context);
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: ButtonStyle(
+        minimumSize: WidgetStateProperty.all(const Size(0, 34)),
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        side: WidgetStateProperty.resolveWith(
+          (states) => BorderSide(
+            width: 1,
+            color: theme.colorScheme.outline.withValues(alpha: 0.26),
+          ),
+        ),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed) ||
+              states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return theme.colorScheme.primary.withValues(alpha: 0.08);
+          }
+          return Colors.transparent;
+        }),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -714,14 +846,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     noteController.dispose();
   }
 
-  String _shiftTypeLabel(ShiftType type) {
+  String _shiftTitle(ShiftType type) {
     switch (type) {
       case ShiftType.firstCommercial:
-        return 'Primeiro comercial (07:00 - 16:48)';
+        return 'Primeiro comercial';
       case ShiftType.secondCommercial:
-        return 'Segundo comercial (16:48 - 02:01)';
+        return 'Segundo comercial';
       case ShiftType.custom:
         return 'Customizado';
+    }
+  }
+
+  String _shiftRange(ShiftType type) {
+    switch (type) {
+      case ShiftType.firstCommercial:
+        return '07:00 → 16:48';
+      case ShiftType.secondCommercial:
+        return '16:48 → 02:01';
+      case ShiftType.custom:
+        return '${_formatHourMinute(_customShift.startHour, _customShift.startMinute)} → ${_formatHourMinute(_customShift.endHour, _customShift.endMinute)}';
     }
   }
 
