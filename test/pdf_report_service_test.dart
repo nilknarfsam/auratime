@@ -18,7 +18,7 @@ void main() {
     expect(sundayLabel, 'Folga');
   });
 
-  test('Explicit company rule renders factory-friendly label', () {
+  test('Explicit company rule renders same app label', () {
     final date = DateTime(2026, 5, 10);
     final rule = WorkDayRule.defaults().copyWith(
       companyCalendarRules: [
@@ -30,7 +30,37 @@ void main() {
       ],
     );
     final label = PdfReportService.buildReportDayLabel(date: date, workDayRule: rule);
-    expect(label, 'Feriado trabalhado por troca');
+    expect(label, 'Troca');
+  });
+
+  test('Saturday compensation rule renders Sábado compensado', () {
+    final date = DateTime(2026, 5, 2);
+    final rule = WorkDayRule.defaults().copyWith(
+      companyCalendarRules: [
+        CompanyCalendarRule(
+          date: date,
+          dayType: WorkDayType.saturdayCompensation,
+          note: 'Compensação oficial',
+        ),
+      ],
+    );
+    final label = PdfReportService.buildReportDayLabel(date: date, workDayRule: rule);
+    expect(label, 'Sábado compensado');
+  });
+
+  test('Explicit compensatory day off renders Folga compensatória', () {
+    final date = DateTime(2026, 5, 9);
+    final rule = WorkDayRule.defaults().copyWith(
+      companyCalendarRules: [
+        CompanyCalendarRule(
+          date: date,
+          dayType: WorkDayType.compensatoryDayOff,
+          note: 'Folga definida',
+        ),
+      ],
+    );
+    final label = PdfReportService.buildReportDayLabel(date: date, workDayRule: rule);
+    expect(label, 'Folga compensatória');
   });
 
   test('Holiday label includes holiday name when available', () {
@@ -40,7 +70,7 @@ void main() {
     expect(label, 'Feriado (Independência do Brasil)');
   });
 
-  test('Explicit regular override renders Dia normal por exceção', () {
+  test('Explicit regular override stays aligned with app label', () {
     final date = DateTime(2026, 9, 7);
     final rule = WorkDayRule.defaults().copyWith(
       useBrazilNationalHolidays: true,
@@ -53,6 +83,6 @@ void main() {
       ],
     );
     final label = PdfReportService.buildReportDayLabel(date: date, workDayRule: rule);
-    expect(label, 'Dia normal por exceção');
+    expect(label, 'Normal');
   });
 }

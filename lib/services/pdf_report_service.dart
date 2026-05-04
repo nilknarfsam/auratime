@@ -134,18 +134,8 @@ class PdfReportService {
   }) {
     final engine = WorkScheduleEngine(workDayRule);
     final dayType = engine.getDayType(date);
-    final hasExplicitRule = engine.hasExplicitRuleForDate(date);
     final holiday = engine.getHolidayForDate(date);
-
-    final label = switch (dayType) {
-      WorkDayType.regular => hasExplicitRule ? 'Dia normal por exceção' : 'Normal',
-      WorkDayType.saturdayCompensation => 'Sábado trabalhado',
-      WorkDayType.holiday => 'Feriado',
-      WorkDayType.holidayWorkedSwap => 'Feriado trabalhado por troca',
-      WorkDayType.compensatoryDayOff => hasExplicitRule
-          ? 'Folga compensatória'
-          : 'Folga',
-    };
+    final label = engine.getDisplayDayLabel(date);
 
     if (dayType == WorkDayType.holiday && holiday != null && holiday.name.trim().isNotEmpty) {
       return '$label (${holiday.name.trim()})';
