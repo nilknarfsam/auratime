@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:auratime/domain/insights/insights_engine.dart';
 import 'package:auratime/domain/work_schedule/daily_status_engine.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/models/time_record.dart';
@@ -14,12 +15,14 @@ class DashboardInsightsPanel extends StatefulWidget {
     required this.weekWorkedDays,
     required this.weekWorkedHours,
     required this.weekBalance,
+    required this.insights,
   });
 
   final TimeRecord todayRecord;
   final int weekWorkedDays;
   final Duration weekWorkedHours;
   final Duration weekBalance;
+  final List<InsightItem> insights;
 
   @override
   State<DashboardInsightsPanel> createState() => _DashboardInsightsPanelState();
@@ -144,6 +147,51 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
                 ],
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Insights',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...widget.insights.take(3).map((insight) {
+                  final color = _insightColor(theme, insight.severity);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          _insightIcon(insight.severity),
+                          size: 16,
+                          color: color,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            insight.message,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -354,6 +402,28 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
     final hh = hour.toString().padLeft(2, '0');
     final mm = minute.toString().padLeft(2, '0');
     return '$hh:$mm';
+  }
+
+  IconData _insightIcon(InsightSeverity severity) {
+    switch (severity) {
+      case InsightSeverity.info:
+        return Icons.insights_rounded;
+      case InsightSeverity.warning:
+        return Icons.warning_amber_rounded;
+      case InsightSeverity.success:
+        return Icons.auto_graph_rounded;
+    }
+  }
+
+  Color _insightColor(ThemeData theme, InsightSeverity severity) {
+    switch (severity) {
+      case InsightSeverity.info:
+        return theme.colorScheme.secondary;
+      case InsightSeverity.warning:
+        return const Color(0xFFFFD166);
+      case InsightSeverity.success:
+        return const Color(0xFF56F09B);
+    }
   }
 
   String _formatSignedDuration(Duration duration) {

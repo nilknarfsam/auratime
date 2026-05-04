@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:auratime/core/ui/snackbar_helper.dart';
+import 'package:auratime/domain/insights/insights_engine.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:auratime/models/time_record.dart';
@@ -32,6 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Duration _weekBalance = Duration.zero;
   Duration _weekWorkedHours = Duration.zero;
   int _weekWorkedDays = 0;
+  List<InsightItem> _insights = const [];
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
   bool _isLoading = false;
@@ -82,6 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         weekWorkedDays: _weekWorkedDays,
                         weekWorkedHours: _weekWorkedHours,
                         weekBalance: _weekBalance,
+                        insights: _insights,
                       ),
                       const SizedBox(height: 24),
                       Container(
@@ -211,6 +214,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _weekBalance = summary.balance;
         _weekWorkedHours = summary.workedHours;
         _weekWorkedDays = summary.workedDays;
+        _insights = summary.insights;
       });
       unawaited(syncHomeWidgetStatus());
     } finally {
@@ -346,6 +350,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       _weekBalance = summary.balance;
       _weekWorkedHours = summary.workedHours;
       _weekWorkedDays = summary.workedDays;
+      _insights = summary.insights;
     });
   }
 
@@ -369,7 +374,16 @@ class _DashboardScreenState extends State<DashboardScreen>
         workedDays++;
       }
     }
-    return _WeeklySummary(balance: balance, workedHours: workedHours, workedDays: workedDays);
+    final insightsEngine = InsightsEngine(
+      workScheduleEngine: WorkScheduleEngine(AppSettingsService.current.workDayRule),
+    );
+    final insights = insightsEngine.analyze(records: records, now: now);
+    return _WeeklySummary(
+      balance: balance,
+      workedHours: workedHours,
+      workedDays: workedDays,
+      insights: insights,
+    );
   }
 }
 
@@ -378,9 +392,11 @@ class _WeeklySummary {
     required this.balance,
     required this.workedHours,
     required this.workedDays,
+    this.insights = const [],
   });
 
   final Duration balance;
   final Duration workedHours;
   final int workedDays;
+  final List<InsightItem> insights;
 }
