@@ -14,8 +14,8 @@ class WorkScheduleEngine {
     if (isHoliday(normalized)) {
       return WorkDayType.holiday;
     }
-    if (normalized.weekday == DateTime.saturday && rule.saturdayCompensationEnabled) {
-      return WorkDayType.saturdayCompensation;
+    if (_isWeekend(normalized)) {
+      return WorkDayType.compensatoryDayOff;
     }
     return WorkDayType.regular;
   }
@@ -71,5 +71,9 @@ class WorkScheduleEngine {
 
   bool _sameDate(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _isWeekend(DateTime date) {
+    return date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
   }
 }

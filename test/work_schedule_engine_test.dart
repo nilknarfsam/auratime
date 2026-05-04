@@ -26,8 +26,8 @@ void main() {
     final rule = WorkDayRule.defaults().copyWith(saturdayCompensationEnabled: true);
     final engine = WorkScheduleEngine(rule);
     final saturday = DateTime(2026, 5, 2);
-    expect(engine.getDayType(saturday), WorkDayType.saturdayCompensation);
-    expect(engine.calculateExpectedDuration(saturday), const Duration(hours: 8));
+    expect(engine.getDayType(saturday), WorkDayType.compensatoryDayOff);
+    expect(engine.calculateExpectedDuration(saturday), Duration.zero);
   });
 
   test('Holiday with zero expected hours', () {
@@ -67,6 +67,73 @@ void main() {
     final engine = WorkScheduleEngine(rule);
     expect(engine.getDayType(DateTime(2026, 5, 6)), WorkDayType.compensatoryDayOff);
     expect(engine.isWorkingDay(DateTime(2026, 5, 6)), isFalse);
+  });
+
+  test('Saturday without explicit rule is non-working day', () {
+    final engine = WorkScheduleEngine(WorkDayRule.defaults());
+    final saturday = DateTime(2026, 5, 2);
+    expect(engine.getDayType(saturday), WorkDayType.compensatoryDayOff);
+    expect(engine.calculateExpectedDuration(saturday), Duration.zero);
+    expect(engine.isWorkingDay(saturday), isFalse);
+  });
+
+  test('Sunday without explicit rule is non-working day', () {
+    final engine = WorkScheduleEngine(WorkDayRule.defaults());
+    final sunday = DateTime(2026, 5, 3);
+    expect(engine.getDayType(sunday), WorkDayType.compensatoryDayOff);
+    expect(engine.calculateExpectedDuration(sunday), Duration.zero);
+    expect(engine.isWorkingDay(sunday), isFalse);
+  });
+
+  test('Saturday with compensation rule uses 07:00 to 15:00', () {
+    final saturday = DateTime(2026, 5, 2);
+    final rule = WorkDayRule.defaults().copyWith(
+      companyCalendarRules: [
+        CompanyCalendarRule(
+          date: saturday,
+          dayType: WorkDayType.saturdayCompensation,
+          note: 'Compensacao oficial',
+        ),
+      ],
+    );
+    final engine = WorkScheduleEngine(rule);
+    final shift = engine.getShiftForDate(saturday);
+    expect(engine.getDayType(saturday), WorkDayType.saturdayCompensation);
+    expect(engine.isWorkingDay(saturday), isTrue);
+    expect(shift, isNotNull);
+    expect(shift!.startHour, 7);
+    expect(shift.startMinute, 0);
+    expect(shift.endHour, 15);
+    expect(shift.endMinute, 0);
+    expect(engine.calculateExpectedDuration(saturday), const Duration(hours: 8));
+  });
+
+  test('Sunday with explicit worked rule is a working day', () {
+    final sunday = DateTime(2026, 5, 3);
+    final rule = WorkDayRule.defaults().copyWith(
+      companyCalendarRules: [
+        CompanyCalendarRule(
+          date: sunday,
+          dayType: WorkDayType.holidayWorkedSwap,
+          note: 'Plantao extraordinario',
+        ),
+      ],
+    );
+    final engine = WorkScheduleEngine(rule);
+    expect(engine.getDayType(sunday), WorkDayType.holidayWorkedSwap);
+    expect(engine.isWorkingDay(sunday), isTrue);
+    expect(
+      engine.calculateExpectedDuration(sunday),
+      const Duration(hours: 9, minutes: 48),
+    );
+  });
+
+  test('Weekend without punch has no negative expectation', () {
+    final engine = WorkScheduleEngine(WorkDayRule.defaults());
+    final saturday = DateTime(2026, 5, 2);
+    final sunday = DateTime(2026, 5, 3);
+    expect(engine.calculateExpectedDuration(saturday), Duration.zero);
+    expect(engine.calculateExpectedDuration(sunday), Duration.zero);
   });
 
   test('Backward compatibility defaults', () async {
