@@ -11,6 +11,67 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+const int _initialMonthRecordsLimit = 5;
+
+@visibleForTesting
+DateTimeRange computeMonthlyCycleRange(DateTime now, int cycleStartDay) {
+  final safeCycleStartDay = cycleStartDay.clamp(1, 28);
+  final today = DateTime(now.year, now.month, now.day);
+  final start = today.day >= safeCycleStartDay
+      ? DateTime(today.year, today.month, safeCycleStartDay)
+      : DateTime(today.year, today.month - 1, safeCycleStartDay);
+  final end = DateTime(
+    start.year,
+    start.month + 1,
+    safeCycleStartDay,
+  ).subtract(const Duration(days: 1));
+  return DateTimeRange(
+    start: start,
+    end: DateTime(end.year, end.month, end.day, 23, 59, 59),
+  );
+}
+
+@visibleForTesting
+String buildHistoryCycleSubtitle(DateTimeRange range) {
+  final compactFormatter = DateFormat("d 'de' MMM", 'pt_BR');
+  return 'Ciclo atual: ${compactFormatter.format(range.start)} - ${compactFormatter.format(range.end)}';
+}
+
+@visibleForTesting
+String? buildHistoryMultiMonthHint(DateTimeRange range) {
+  if (range.start.year == range.end.year && range.start.month == range.end.month) {
+    return null;
+  }
+  final monthFormatter = DateFormat('MMMM', 'pt_BR');
+  return 'Inclui dias de ${monthFormatter.format(range.start)} e ${monthFormatter.format(range.end)}.';
+}
+
+@visibleForTesting
+String formatHistoryCardDateLabel(DateTime date, {required bool includeMonthAbbreviation}) {
+  final formatter = includeMonthAbbreviation
+      ? DateFormat("d 'de' MMM", 'pt_BR')
+      : DateFormat("d 'de' MMMM", 'pt_BR');
+  final text = formatter.format(date);
+  if (text.isEmpty) {
+    return text;
+  }
+  return '${text[0].toUpperCase()}${text.substring(1)}';
+}
+
+@visibleForTesting
+int computeVisibleRecordCount({
+  required int totalRecords,
+  required bool isCurrentMonthFilter,
+  required bool showFullCurrentCycle,
+}) {
+  if (!isCurrentMonthFilter || showFullCurrentCycle) {
+    return totalRecords;
+  }
+  return totalRecords < _initialMonthRecordsLimit
+      ? totalRecords
+      : _initialMonthRecordsLimit;
+}
+
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key, required this.refreshListenable});
 
@@ -22,7 +83,6 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final TimeRecordService _timeRecordService = TimeRecordService();
-  final DateFormat _dateFormatter = DateFormat("d 'de' MMMM", 'pt_BR');
   final DateFormat _shortDateFormatter = DateFormat('dd/MM', 'pt_BR');
   final DateFormat _timeFormatter = DateFormat('HH:mm', 'pt_BR');
   List<TimeRecord> _allRecords = const [];
@@ -35,6 +95,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   late WorkScheduleEngine _scheduleEngine;
   _HistoryFilter _selectedFilter = _HistoryFilter.currentMonth;
   DateTimeRange? _customRange;
+  bool _showFullCurrentCycle = false;
   bool _isLoading = true;
   bool _isGeneratingReport = false;
 
@@ -50,7 +111,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void _onSettingsChanged() {
     _scheduleEngine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
     if (mounted) {
-      setState(_recomputeDisplayData);
+      setState(() {
+        _showFullCurrentCycle = false;
+        _recomputeDisplayData();
+      });
     }
   }
 
@@ -72,6 +136,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _recomputeDisplayData() {
     final range = _selectedDateRange;
+    final includeMonthAbbreviation =
+        range.start.year != range.end.year || range.start.month != range.end.month;
     final filtered = _allRecords
         .where((record) => _isWithinRange(record.date, range))
         .toList()
@@ -100,8 +166,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           (r) => _HistoryRowViewModel.from(
             r,
             _scheduleEngine,
-            _dateFormatter,
             _timeFormatter,
+            includeMonthAbbreviation: includeMonthAbbreviation,
           ),
         )
         .toList();
@@ -136,6 +202,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         children: [
                           const SizedBox(height: 6),
                           Text('Histórico', style: theme.textTheme.headlineMedium),
+                          const SizedBox(height: 4),
+                          _buildPeriodSubtitle(theme),
                           const SizedBox(height: 6),
                           _buildFilterSection(theme),
                           const SizedBox(height: 8),
@@ -254,6 +322,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               }
               setState(() {
                 _customRange = picked;
+                _showFullCurrentCycle = false;
                 _recomputeDisplayData();
               });
             },
@@ -297,12 +366,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
             setState(() {
               _selectedFilter = _HistoryFilter.customRange;
               _customRange = picked;
+              _showFullCurrentCycle = false;
               _recomputeDisplayData();
             });
             return;
           }
           setState(() {
             _selectedFilter = value;
+            _showFullCurrentCycle = false;
             _recomputeDisplayData();
           });
         },
@@ -512,15 +583,50 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return '$sign $timeText';
   }
 
-  String _capitalize(String text) {
-    if (text.isEmpty) {
-      return text;
-    }
-    return '${text[0].toUpperCase()}${text.substring(1)}';
+  Widget _buildPeriodSubtitle(ThemeData theme) {
+    final range = _selectedDateRange;
+    final subtitle = _selectedFilter == _HistoryFilter.currentMonth
+        ? buildHistoryCycleSubtitle(range)
+        : _currentPeriodLabel();
+    final extraHint = buildHistoryMultiMonthHint(range);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (extraHint != null)
+          Text(
+            extraHint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.86),
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<_HistoryRowViewModel> get _visibleRowsForList {
+    final visibleCount = computeVisibleRecordCount(
+      totalRecords: _rowViewModels.length,
+      isCurrentMonthFilter: _selectedFilter == _HistoryFilter.currentMonth,
+      showFullCurrentCycle: _showFullCurrentCycle,
+    );
+    return _rowViewModels.take(visibleCount).toList();
+  }
+
+  bool get _canExpandCurrentCycleList {
+    return _selectedFilter == _HistoryFilter.currentMonth &&
+        !_showFullCurrentCycle &&
+        _rowViewModels.length > _initialMonthRecordsLimit;
   }
 
   Widget _buildRefreshableHistoryList(ThemeData theme) {
-    final rows = _rowViewModels;
+    final rows = _visibleRowsForList;
 
     return RefreshIndicator(
       onRefresh: _refreshHistory,
@@ -546,9 +652,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
           : ListView.separated(
               padding: const EdgeInsets.only(bottom: 104),
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: rows.length,
+              itemCount: rows.length + (_canExpandCurrentCycleList ? 1 : 0),
               separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
+                if (_canExpandCurrentCycleList && index == rows.length) {
+                  return OutlinedButton(
+                    onPressed: () => setState(() => _showFullCurrentCycle = true),
+                    child: const Text('Ver mês completo'),
+                  );
+                }
                 final row = rows[index];
                 return RepaintBoundary(
                   child: _HistoryRecordTile(theme: theme, row: row),
@@ -567,7 +679,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
     switch (_selectedFilter) {
       case _HistoryFilter.currentMonth:
-        return DateTimeRange(start: DateTime(now.year, now.month, 1), end: end);
+        return computeMonthlyCycleRange(now, AppSettingsService.current.cycleStartDay);
       case _HistoryFilter.last7Days:
         final start = DateTime(
           now.year,
@@ -636,7 +748,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final range = _selectedDateRange;
     switch (_selectedFilter) {
       case _HistoryFilter.currentMonth:
-        return 'Mês atual (${DateFormat('MMMM yyyy', 'pt_BR').format(range.start)})';
+        return buildHistoryCycleSubtitle(range);
       case _HistoryFilter.last7Days:
         return 'Últimos 7 dias (${_shortDateFormatter.format(range.start)} a ${_shortDateFormatter.format(range.end)})';
       case _HistoryFilter.last30Days:
@@ -650,9 +762,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final range = _selectedDateRange;
     switch (_selectedFilter) {
       case _HistoryFilter.currentMonth:
-        return _capitalize(
-          DateFormat('MMMM_yyyy', 'pt_BR').format(range.start),
-        );
+        final start = DateFormat('dd-MM-yyyy', 'pt_BR').format(range.start);
+        final end = DateFormat('dd-MM-yyyy', 'pt_BR').format(range.end);
+        return 'Ciclo_${start}_a_$end';
       case _HistoryFilter.last7Days:
         return 'Ultimos_7_Dias';
       case _HistoryFilter.last30Days:
@@ -759,8 +871,8 @@ class _HistoryRowViewModel {
   factory _HistoryRowViewModel.from(
     TimeRecord record,
     WorkScheduleEngine engine,
-    DateFormat dateFormatter,
     DateFormat timeFormatter,
+    {required bool includeMonthAbbreviation}
   ) {
     final workDayType = engine.getDayType(record.date);
     final dailyBalance = record.balance;
@@ -771,13 +883,6 @@ class _HistoryRowViewModel {
     final statusText = engine.getDisplayDayLabel(record.date);
     final statusColor = _historyWorkDayTypeColor(workDayType);
     final statusBackground = statusColor.withValues(alpha: 0.18);
-
-    String capitalize(String text) {
-      if (text.isEmpty) {
-        return text;
-      }
-      return '${text[0].toUpperCase()}${text.substring(1)}';
-    }
 
     String formatDuration(Duration duration) {
       final totalMinutes = duration.inMinutes.abs();
@@ -800,7 +905,10 @@ class _HistoryRowViewModel {
 
     return _HistoryRowViewModel(
       record: record,
-      dateTitle: capitalize(dateFormatter.format(record.date)),
+      dateTitle: formatHistoryCardDateLabel(
+        record.date,
+        includeMonthAbbreviation: includeMonthAbbreviation,
+      ),
       statusText: statusText,
       balanceStr: formatSignedDuration(dailyBalance),
       balanceColor: balanceColor,

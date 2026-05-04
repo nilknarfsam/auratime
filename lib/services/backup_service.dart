@@ -79,6 +79,7 @@ class BackupService {
         defaultExitMinute: settings.defaultExitMinute,
         lunchBreakMinutes: settings.lunchBreakMinutes,
         dailyGoalMinutes: settings.dailyGoalMinutes,
+        cycleStartDay: settings.cycleStartDay,
         workDayRule: settings.workDayRule,
       ),
       records: records
@@ -106,6 +107,7 @@ class BackupService {
       defaultExitMinute: payload.settings.defaultExitMinute,
       lunchBreakMinutes: payload.settings.lunchBreakMinutes,
       dailyGoalMinutes: payload.settings.dailyGoalMinutes,
+      cycleStartDay: payload.settings.cycleStartDay,
       workDayRule: payload.settings.workDayRule,
     );
     await AppSettingsService.save(importedSettings);

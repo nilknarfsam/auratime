@@ -12,6 +12,7 @@ class AppSettings {
     required this.defaultExitMinute,
     required this.lunchBreakMinutes,
     required this.dailyGoalMinutes,
+    required this.cycleStartDay,
     required this.workDayRule,
   });
 
@@ -24,6 +25,7 @@ class AppSettings {
       defaultExitMinute: 48,
       lunchBreakMinutes: 60,
       dailyGoalMinutes: 528,
+      cycleStartDay: 1,
       workDayRule: WorkDayRule.defaults(),
     );
   }
@@ -35,6 +37,7 @@ class AppSettings {
   final int defaultExitMinute;
   final int lunchBreakMinutes;
   final int dailyGoalMinutes;
+  final int cycleStartDay;
   final WorkDayRule workDayRule;
 
   Duration get lunchBreakDuration => Duration(minutes: lunchBreakMinutes);
@@ -48,6 +51,7 @@ class AppSettings {
     int? defaultExitMinute,
     int? lunchBreakMinutes,
     int? dailyGoalMinutes,
+    int? cycleStartDay,
     WorkDayRule? workDayRule,
   }) {
     return AppSettings(
@@ -58,8 +62,13 @@ class AppSettings {
       defaultExitMinute: defaultExitMinute ?? this.defaultExitMinute,
       lunchBreakMinutes: lunchBreakMinutes ?? this.lunchBreakMinutes,
       dailyGoalMinutes: dailyGoalMinutes ?? this.dailyGoalMinutes,
+      cycleStartDay: _sanitizeCycleStartDay(cycleStartDay ?? this.cycleStartDay),
       workDayRule: workDayRule ?? this.workDayRule,
     );
+  }
+
+  static int _sanitizeCycleStartDay(int value) {
+    return value.clamp(1, 28);
   }
 }
 
@@ -71,6 +80,7 @@ class AppSettingsService {
   static const _defaultExitMinuteKey = 'settings_default_exit_minute';
   static const _lunchBreakMinutesKey = 'settings_lunch_break_minutes';
   static const _dailyGoalMinutesKey = 'settings_daily_goal_minutes';
+  static const _cycleStartDayKey = 'settings_cycle_start_day';
   static const _workDayRuleKey = 'settings_work_day_rule_json';
 
   static AppSettings _current = AppSettings.defaults();
@@ -95,6 +105,8 @@ class AppSettingsService {
           prefs.getInt(_lunchBreakMinutesKey) ?? AppSettings.defaults().lunchBreakMinutes,
       dailyGoalMinutes:
           prefs.getInt(_dailyGoalMinutesKey) ?? AppSettings.defaults().dailyGoalMinutes,
+      cycleStartDay: (prefs.getInt(_cycleStartDayKey) ?? AppSettings.defaults().cycleStartDay)
+          .clamp(1, 28),
       workDayRule: _readWorkDayRule(prefs),
     );
     settingsListenable.value = _current;
@@ -109,8 +121,12 @@ class AppSettingsService {
     await prefs.setInt(_defaultExitMinuteKey, settings.defaultExitMinute);
     await prefs.setInt(_lunchBreakMinutesKey, settings.lunchBreakMinutes);
     await prefs.setInt(_dailyGoalMinutesKey, settings.dailyGoalMinutes);
+    await prefs.setInt(_cycleStartDayKey, settings.cycleStartDay.clamp(1, 28));
     await prefs.setString(_workDayRuleKey, jsonEncode(settings.workDayRule.toJson()));
-    _current = settings.copyWith(userName: settings.userName.trim());
+    _current = settings.copyWith(
+      userName: settings.userName.trim(),
+      cycleStartDay: settings.cycleStartDay,
+    );
     settingsListenable.value = _current;
   }
 

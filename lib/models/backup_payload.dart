@@ -62,6 +62,7 @@ class BackupSettings {
     required this.defaultExitMinute,
     required this.lunchBreakMinutes,
     required this.dailyGoalMinutes,
+    required this.cycleStartDay,
     required this.workDayRule,
   });
 
@@ -72,6 +73,7 @@ class BackupSettings {
   final int defaultExitMinute;
   final int lunchBreakMinutes;
   final int dailyGoalMinutes;
+  final int cycleStartDay;
   final WorkDayRule workDayRule;
 
   Map<String, dynamic> toJson() {
@@ -83,6 +85,7 @@ class BackupSettings {
       'defaultExitMinute': defaultExitMinute,
       'lunchBreakMinutes': lunchBreakMinutes,
       'dailyGoalMinutes': dailyGoalMinutes,
+      'cycleStartDay': cycleStartDay,
       'workDayRule': workDayRule.toJson(),
     };
   }
@@ -96,6 +99,7 @@ class BackupSettings {
       defaultExitMinute: (json['defaultExitMinute'] as num?)?.toInt() ?? 48,
       lunchBreakMinutes: (json['lunchBreakMinutes'] as num?)?.toInt() ?? 60,
       dailyGoalMinutes: (json['dailyGoalMinutes'] as num?)?.toInt() ?? 528,
+      cycleStartDay: ((json['cycleStartDay'] as num?)?.toInt() ?? 1).clamp(1, 28),
       workDayRule: WorkDayRule.fromJson(
         (json['workDayRule'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{},
       ),

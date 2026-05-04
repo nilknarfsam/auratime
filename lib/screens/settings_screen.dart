@@ -22,6 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TimeOfDay _defaultExitTime;
   late Duration _lunchBreak;
   late Duration _dailyGoal;
+  late int _cycleStartDay;
   late ShiftType _defaultShiftType;
   late bool _saturdayCompensationEnabled;
   late bool _useBrazilNationalHolidays;
@@ -48,6 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     _lunchBreak = settings.lunchBreakDuration;
     _dailyGoal = settings.dailyGoalDuration;
+    _cycleStartDay = settings.cycleStartDay;
     _defaultShiftType = settings.workDayRule.defaultShiftType;
     _saturdayCompensationEnabled = settings.workDayRule.saturdayCompensationEnabled;
     _useBrazilNationalHolidays = settings.workDayRule.useBrazilNationalHolidays;
@@ -325,6 +327,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           });
                         },
                       ),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Início do ciclo mensal'),
+                      subtitle: Text(
+                        'Dia $_cycleStartDay\nUse 1 para mês comum ou 16 para ciclo da empresa de 16 a 15.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _isSaving ? null : _pickCycleStartDay,
                     ),
                     _buildTimeTile(
                       context: context,
@@ -673,6 +688,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _pickCycleStartDay() async {
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        var tempValue = _cycleStartDay;
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              title: const Text('Início do ciclo mensal'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selecione o dia de início do ciclo (1 a 28).',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: tempValue,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Dia do mês',
+                    ),
+                    items: List.generate(
+                      28,
+                      (index) => DropdownMenuItem<int>(
+                        value: index + 1,
+                        child: Text('${index + 1}'),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setLocalState(() => tempValue = value);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(tempValue),
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (selected == null) {
+      return;
+    }
+    setState(() {
+      _cycleStartDay = selected.clamp(1, 28);
+    });
+  }
+
   Future<void> _save() async {
     final userName = _userNameController.text.trim();
 
@@ -688,6 +766,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       defaultExitMinute: _effectiveDefaultShift.endMinute,
       lunchBreakMinutes: _lunchBreak.inMinutes,
       dailyGoalMinutes: _effectiveDefaultShift.duration.inMinutes,
+      cycleStartDay: _cycleStartDay,
       workDayRule: WorkDayRule(
         defaultShiftType: _defaultShiftType,
         customShift: _customShift.copyWith(type: ShiftType.custom),
@@ -794,6 +873,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       _lunchBreak = reloaded.lunchBreakDuration;
       _dailyGoal = reloaded.workDayRule.defaultShift.duration;
+      _cycleStartDay = reloaded.cycleStartDay;
       _defaultShiftType = reloaded.workDayRule.defaultShiftType;
       _customShift = reloaded.workDayRule.customShift;
       _saturdayCompensationEnabled =
