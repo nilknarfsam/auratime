@@ -218,6 +218,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
       setState(() => _todayRecord = result.record);
       await _refreshWeekSummary();
+      if (!mounted) {
+        return;
+      }
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Ponto registrado com sucesso!');
@@ -241,6 +244,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
       setState(() => _todayRecord = filledRecord);
       await _refreshWeekSummary();
+      if (!mounted) {
+        return;
+      }
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Horários padrões aplicados!');
