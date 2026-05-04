@@ -129,19 +129,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _SaveIndicatorState.saved => ('Salvo', Icons.check_circle_rounded, const Color(0xFF56F09B)),
       _SaveIndicatorState.error => ('Erro ao salvar', Icons.error_outline_rounded, theme.colorScheme.error),
     };
-    if (text.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w700),
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      opacity: text.isEmpty ? 0 : 1,
+      child: IgnorePointer(
+        ignoring: text.isEmpty,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              text,
+              style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -823,7 +828,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _saveState = state;
     });
     if (state == _SaveIndicatorState.saved || state == _SaveIndicatorState.error) {
-      _saveStateTimer = Timer(const Duration(seconds: 2), () {
+      _saveStateTimer = Timer(const Duration(milliseconds: 1500), () {
         if (!mounted) {
           return;
         }
