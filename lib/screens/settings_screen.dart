@@ -21,6 +21,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late Duration _dailyGoal;
   late ShiftType _defaultShiftType;
   late bool _saturdayCompensationEnabled;
+  late bool _useBrazilNationalHolidays;
+  late bool _useManausAmazonasHolidays;
   late WorkShift _customShift;
   late WorkShift _saturdayShift;
   late List<Holiday> _holidays;
@@ -45,6 +47,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _dailyGoal = settings.dailyGoalDuration;
     _defaultShiftType = settings.workDayRule.defaultShiftType;
     _saturdayCompensationEnabled = settings.workDayRule.saturdayCompensationEnabled;
+    _useBrazilNationalHolidays = settings.workDayRule.useBrazilNationalHolidays;
+    _useManausAmazonasHolidays = settings.workDayRule.useManausAmazonasHolidays;
     _customShift = settings.workDayRule.customShift;
     _saturdayShift = settings.workDayRule.saturdayCompensationShift;
     _holidays = List<Holiday>.from(settings.workDayRule.holidays);
@@ -146,6 +150,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               });
                             },
                     ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Usar feriados nacionais do Brasil'),
+                      value: _useBrazilNationalHolidays,
+                      onChanged: _isSaving
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _useBrazilNationalHolidays = value;
+                              });
+                            },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Usar feriados de Manaus/Amazonas'),
+                      value: _useManausAmazonasHolidays,
+                      onChanged: _isSaving
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _useManausAmazonasHolidays = value;
+                              });
+                            },
+                    ),
                     _buildShiftEditor(
                       title: 'Turno customizado',
                       shift: _customShift,
@@ -169,22 +197,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Gerenciar calendário da empresa'),
                       subtitle: Text(
-                        '${_holidays.length} feriados • ${_companyRules.length} regras',
+                        '${_companyRules.length} regras explícitas • ${_holidays.length} feriados legados',
                       ),
                     ),
+                    Text(
+                      'Use regras explícitas para exceções reais de fábrica. Finais de semana sem regra continuam como folga padrão.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         OutlinedButton(
-                          onPressed: _isSaving ? null : _addHoliday,
-                          child: const Text('Adicionar feriado'),
+                          onPressed: _isSaving
+                              ? null
+                              : () => _addCompanyRule(WorkDayType.saturdayCompensation),
+                          child: const Text('Sábado trabalhado'),
                         ),
                         OutlinedButton(
                           onPressed: _isSaving
                               ? null
                               : () => _addCompanyRule(WorkDayType.holidayWorkedSwap),
-                          child: const Text('Feriado trabalhado (troca)'),
+                          child: const Text('Feriado trabalhado por troca'),
                         ),
                         OutlinedButton(
                           onPressed: _isSaving
@@ -196,9 +231,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         OutlinedButton(
                           onPressed: _isSaving
                               ? null
-                              : () =>
-                                  _addCompanyRule(WorkDayType.saturdayCompensation),
-                          child: const Text('Dia de sábado compensado'),
+                              : () => _addCompanyRule(WorkDayType.holiday),
+                          child: const Text('Feriado'),
+                        ),
+                        OutlinedButton(
+                          onPressed: _isSaving
+                              ? null
+                              : () => _addCompanyRule(WorkDayType.regular),
+                          child: const Text('Dia normal por exceção'),
                         ),
                       ],
                     ),
@@ -391,6 +431,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         customShift: _customShift.copyWith(type: ShiftType.custom),
         saturdayCompensationEnabled: _saturdayCompensationEnabled,
         saturdayCompensationShift: _saturdayShift.copyWith(type: ShiftType.custom),
+        useBrazilNationalHolidays: _useBrazilNationalHolidays,
+        useManausAmazonasHolidays: _useManausAmazonasHolidays,
         holidays: _holidays,
         companyCalendarRules: _companyRules,
       ),
@@ -494,6 +536,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _customShift = reloaded.workDayRule.customShift;
       _saturdayCompensationEnabled =
           reloaded.workDayRule.saturdayCompensationEnabled;
+      _useBrazilNationalHolidays = reloaded.workDayRule.useBrazilNationalHolidays;
+      _useManausAmazonasHolidays = reloaded.workDayRule.useManausAmazonasHolidays;
       _saturdayShift = reloaded.workDayRule.saturdayCompensationShift;
       _holidays = List<Holiday>.from(reloaded.workDayRule.holidays);
       _companyRules = List<CompanyCalendarRule>.from(
@@ -593,7 +637,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       widgets.add(
         ListTile(
           contentPadding: EdgeInsets.zero,
-          title: Text(_workDayTypeLabel(rule.dayType)),
+          title: Text(_calendarRuleOptionLabel(rule.dayType)),
           subtitle: Text(
             '${_formatDate(rule.date)}${rule.note == null ? '' : ' • ${rule.note}'}',
           ),
@@ -622,66 +666,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return widgets;
   }
 
-  Future<void> _addHoliday() async {
-    final date = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      initialDate: DateTime.now(),
-    );
-    if (date == null || !mounted) {
-      return;
-    }
-    final nameController = TextEditingController();
-    final noteController = TextEditingController();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Novo feriado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Nome do feriado'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(labelText: 'Observação'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Adicionar'),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      setState(() {
-        _holidays = [
-          ..._holidays.where((h) => !_sameDate(h.date, date)),
-          Holiday(
-            date: date,
-            name: nameController.text.trim().isEmpty
-                ? 'Feriado'
-                : nameController.text.trim(),
-            note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
-          ),
-        ];
-      });
-    }
-    nameController.dispose();
-    noteController.dispose();
-  }
-
   Future<void> _addCompanyRule(WorkDayType dayType) async {
     final date = await showDatePicker(
       context: context,
@@ -696,10 +680,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_workDayTypeLabel(dayType)),
+        title: Text(_calendarRuleOptionLabel(dayType)),
         content: TextField(
           controller: noteController,
-          decoration: const InputDecoration(labelText: 'Observação'),
+          decoration: const InputDecoration(
+            labelText: 'Observação (decisão da empresa)',
+          ),
         ),
         actions: [
           TextButton(
@@ -739,16 +725,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _workDayTypeLabel(WorkDayType type) {
+  String _calendarRuleOptionLabel(WorkDayType type) {
     switch (type) {
       case WorkDayType.regular:
-        return 'Normal';
+        return 'Dia normal por exceção';
       case WorkDayType.saturdayCompensation:
-        return 'Sábado compensado';
+        return 'Sábado trabalhado';
       case WorkDayType.holiday:
         return 'Feriado';
       case WorkDayType.holidayWorkedSwap:
-        return 'Troca de feriado';
+        return 'Feriado trabalhado por troca';
       case WorkDayType.compensatoryDayOff:
         return 'Folga compensatória';
     }

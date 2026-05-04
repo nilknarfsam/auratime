@@ -1,4 +1,5 @@
 import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
+import 'package:auratime/domain/work_schedule/holiday_presets.dart';
 
 class WorkScheduleEngine {
   const WorkScheduleEngine(this.rule);
@@ -70,7 +71,8 @@ class WorkScheduleEngine {
 
   bool isHoliday(DateTime date) {
     final normalized = _normalizeDate(date);
-    return rule.holidays.any((holiday) => _sameDate(holiday.date, normalized));
+    final presetAndCustom = _holidaysForYear(normalized.year);
+    return presetAndCustom.any((holiday) => _sameDate(holiday.date, normalized));
   }
 
   bool isWorkingDay(DateTime date) {
@@ -87,12 +89,39 @@ class WorkScheduleEngine {
     return null;
   }
 
+  List<Holiday> _holidaysForYear(int year) {
+    final mergedByDate = <String, Holiday>{};
+    for (final holiday in rule.holidays) {
+      if (holiday.date.year == year) {
+        mergedByDate[_dateKey(holiday.date)] = holiday;
+      }
+    }
+    if (rule.useBrazilNationalHolidays) {
+      for (final holiday in HolidayPresets.brazilNational(year)) {
+        final key = _dateKey(holiday.date);
+        mergedByDate.putIfAbsent(key, () => holiday);
+      }
+    }
+    if (rule.useManausAmazonasHolidays) {
+      for (final holiday in HolidayPresets.manausAmazonas(year)) {
+        final key = _dateKey(holiday.date);
+        mergedByDate.putIfAbsent(key, () => holiday);
+      }
+    }
+    return mergedByDate.values.toList();
+  }
+
   DateTime _normalizeDate(DateTime value) {
     return DateTime(value.year, value.month, value.day);
   }
 
   bool _sameDate(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _dateKey(DateTime date) {
+    final normalized = _normalizeDate(date);
+    return '${normalized.year}-${normalized.month}-${normalized.day}';
   }
 
   bool _isWeekend(DateTime date) {

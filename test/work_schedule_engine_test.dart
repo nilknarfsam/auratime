@@ -162,6 +162,45 @@ void main() {
     expect(engine.getDisplayDayLabel(targetDate), 'Folga compensatória');
   });
 
+  test('National holiday recognized when enabled', () {
+    final engine = WorkScheduleEngine(
+      WorkDayRule.defaults().copyWith(useBrazilNationalHolidays: true),
+    );
+    expect(engine.getDayType(DateTime(2026, 9, 7)), WorkDayType.holiday);
+    expect(engine.isHoliday(DateTime(2026, 9, 7)), isTrue);
+  });
+
+  test('Manaus/Amazonas holiday recognized when enabled', () {
+    final engine = WorkScheduleEngine(
+      WorkDayRule.defaults().copyWith(useManausAmazonasHolidays: true),
+    );
+    expect(engine.getDayType(DateTime(2026, 10, 24)), WorkDayType.holiday);
+    expect(engine.isHoliday(DateTime(2026, 10, 24)), isTrue);
+  });
+
+  test('Explicit user rule overrides preset holiday', () {
+    final target = DateTime(2026, 9, 7);
+    final engine = WorkScheduleEngine(
+      WorkDayRule.defaults().copyWith(
+        useBrazilNationalHolidays: true,
+        companyCalendarRules: [
+          CompanyCalendarRule(
+            date: target,
+            dayType: WorkDayType.regular,
+            note: 'Operacao normal por decisao da empresa',
+          ),
+        ],
+      ),
+    );
+    expect(engine.getDayType(target), WorkDayType.regular);
+  });
+
+  test('Disabled presets do not affect day type', () {
+    final engine = WorkScheduleEngine(WorkDayRule.defaults());
+    expect(engine.getDayType(DateTime(2026, 9, 7)), WorkDayType.regular);
+    expect(engine.isHoliday(DateTime(2026, 9, 7)), isFalse);
+  });
+
   test('Backward compatibility defaults', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await AppSettingsService.initialize();

@@ -153,6 +153,8 @@ class WorkDayRule {
     required this.customShift,
     required this.saturdayCompensationEnabled,
     required this.saturdayCompensationShift,
+    required this.useBrazilNationalHolidays,
+    required this.useManausAmazonasHolidays,
     required this.holidays,
     required this.companyCalendarRules,
   });
@@ -161,6 +163,8 @@ class WorkDayRule {
   final WorkShift customShift;
   final bool saturdayCompensationEnabled;
   final WorkShift saturdayCompensationShift;
+  final bool useBrazilNationalHolidays;
+  final bool useManausAmazonasHolidays;
   final List<Holiday> holidays;
   final List<CompanyCalendarRule> companyCalendarRules;
 
@@ -170,6 +174,8 @@ class WorkDayRule {
       customShift: defaultFirstCommercialShift,
       saturdayCompensationEnabled: false,
       saturdayCompensationShift: defaultSaturdayCompensationShift,
+      useBrazilNationalHolidays: false,
+      useManausAmazonasHolidays: false,
       holidays: const [],
       companyCalendarRules: const [],
     );
@@ -215,6 +221,8 @@ class WorkDayRule {
     WorkShift? customShift,
     bool? saturdayCompensationEnabled,
     WorkShift? saturdayCompensationShift,
+    bool? useBrazilNationalHolidays,
+    bool? useManausAmazonasHolidays,
     List<Holiday>? holidays,
     List<CompanyCalendarRule>? companyCalendarRules,
   }) {
@@ -225,6 +233,10 @@ class WorkDayRule {
           saturdayCompensationEnabled ?? this.saturdayCompensationEnabled,
       saturdayCompensationShift:
           saturdayCompensationShift ?? this.saturdayCompensationShift,
+      useBrazilNationalHolidays:
+          useBrazilNationalHolidays ?? this.useBrazilNationalHolidays,
+      useManausAmazonasHolidays:
+          useManausAmazonasHolidays ?? this.useManausAmazonasHolidays,
       holidays: holidays ?? this.holidays,
       companyCalendarRules: companyCalendarRules ?? this.companyCalendarRules,
     );
@@ -236,6 +248,8 @@ class WorkDayRule {
       'customShift': customShift.toJson(),
       'saturdayCompensationEnabled': saturdayCompensationEnabled,
       'saturdayCompensationShift': saturdayCompensationShift.toJson(),
+      'useBrazilNationalHolidays': useBrazilNationalHolidays,
+      'useManausAmazonasHolidays': useManausAmazonasHolidays,
       'holidays': holidays.map((item) => item.toJson()).toList(),
       'companyCalendarRules': companyCalendarRules.map((item) => item.toJson()).toList(),
     };
@@ -260,6 +274,12 @@ class WorkDayRule {
             <String, dynamic>{},
         fallback: defaults.saturdayCompensationShift,
       ),
+      useBrazilNationalHolidays:
+          (json['useBrazilNationalHolidays'] as bool?) ??
+              defaults.useBrazilNationalHolidays,
+      useManausAmazonasHolidays:
+          (json['useManausAmazonasHolidays'] as bool?) ??
+              defaults.useManausAmazonasHolidays,
       holidays: (json['holidays'] as List?)
               ?.whereType<Map>()
               .map((item) => Holiday.fromJson(item.cast<String, dynamic>()))
