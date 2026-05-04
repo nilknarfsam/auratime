@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSettings {
@@ -10,10 +12,11 @@ class AppSettings {
     required this.defaultExitMinute,
     required this.lunchBreakMinutes,
     required this.dailyGoalMinutes,
+    required this.workDayRule,
   });
 
   factory AppSettings.defaults() {
-    return const AppSettings(
+    return AppSettings(
       userName: 'Usuário',
       defaultEntryHour: 7,
       defaultEntryMinute: 0,
@@ -21,6 +24,7 @@ class AppSettings {
       defaultExitMinute: 48,
       lunchBreakMinutes: 60,
       dailyGoalMinutes: 528,
+      workDayRule: WorkDayRule.defaults(),
     );
   }
 
@@ -31,6 +35,7 @@ class AppSettings {
   final int defaultExitMinute;
   final int lunchBreakMinutes;
   final int dailyGoalMinutes;
+  final WorkDayRule workDayRule;
 
   Duration get lunchBreakDuration => Duration(minutes: lunchBreakMinutes);
   Duration get dailyGoalDuration => Duration(minutes: dailyGoalMinutes);
@@ -43,6 +48,7 @@ class AppSettings {
     int? defaultExitMinute,
     int? lunchBreakMinutes,
     int? dailyGoalMinutes,
+    WorkDayRule? workDayRule,
   }) {
     return AppSettings(
       userName: userName ?? this.userName,
@@ -52,6 +58,7 @@ class AppSettings {
       defaultExitMinute: defaultExitMinute ?? this.defaultExitMinute,
       lunchBreakMinutes: lunchBreakMinutes ?? this.lunchBreakMinutes,
       dailyGoalMinutes: dailyGoalMinutes ?? this.dailyGoalMinutes,
+      workDayRule: workDayRule ?? this.workDayRule,
     );
   }
 }
@@ -64,6 +71,7 @@ class AppSettingsService {
   static const _defaultExitMinuteKey = 'settings_default_exit_minute';
   static const _lunchBreakMinutesKey = 'settings_lunch_break_minutes';
   static const _dailyGoalMinutesKey = 'settings_daily_goal_minutes';
+  static const _workDayRuleKey = 'settings_work_day_rule_json';
 
   static AppSettings _current = AppSettings.defaults();
   static final ValueNotifier<AppSettings> settingsListenable =
@@ -87,6 +95,7 @@ class AppSettingsService {
           prefs.getInt(_lunchBreakMinutesKey) ?? AppSettings.defaults().lunchBreakMinutes,
       dailyGoalMinutes:
           prefs.getInt(_dailyGoalMinutesKey) ?? AppSettings.defaults().dailyGoalMinutes,
+      workDayRule: _readWorkDayRule(prefs),
     );
     settingsListenable.value = _current;
   }
@@ -100,7 +109,24 @@ class AppSettingsService {
     await prefs.setInt(_defaultExitMinuteKey, settings.defaultExitMinute);
     await prefs.setInt(_lunchBreakMinutesKey, settings.lunchBreakMinutes);
     await prefs.setInt(_dailyGoalMinutesKey, settings.dailyGoalMinutes);
+    await prefs.setString(_workDayRuleKey, jsonEncode(settings.workDayRule.toJson()));
     _current = settings.copyWith(userName: settings.userName.trim());
     settingsListenable.value = _current;
+  }
+
+  static WorkDayRule _readWorkDayRule(SharedPreferences prefs) {
+    final raw = prefs.getString(_workDayRuleKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return WorkDayRule.defaults();
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return WorkDayRule.defaults();
+      }
+      return WorkDayRule.fromJson(decoded);
+    } catch (_) {
+      return WorkDayRule.defaults();
+    }
   }
 }

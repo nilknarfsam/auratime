@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:auratime/core/ui/snackbar_helper.dart';
+import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
+import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/services/app_settings_service.dart';
 import 'package:auratime/services/pdf_report_service.dart';
@@ -103,13 +105,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildHistoryRecordCard(ThemeData theme, TimeRecord record) {
+    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
+    final workDayType = engine.getDayType(record.date);
     final dailyBalance = record.balance;
     final isPositive = dailyBalance.inMinutes >= 0;
     final balanceColor = isPositive
         ? const Color(0xFF56F09B)
         : const Color(0xFFFF8A80);
-    final statusText = _dayTypeLabel(record.dayType);
-    final statusColor = _dayTypeColor(record.dayType);
+    final statusText = _workDayTypeLabel(workDayType);
+    final statusColor = _workDayTypeColor(workDayType);
     final statusBackground = statusColor.withValues(alpha: 0.18);
 
     return Card(
@@ -689,24 +693,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return _timeFormatter.format(time);
   }
 
-  String _dayTypeLabel(DayType dayType) {
+  String _workDayTypeLabel(WorkDayType dayType) {
     switch (dayType) {
-      case DayType.regular:
+      case WorkDayType.regular:
         return 'Normal';
-      case DayType.holiday:
+      case WorkDayType.saturdayCompensation:
+        return 'Sábado compensado';
+      case WorkDayType.holiday:
         return 'Feriado';
-      case DayType.dayOff:
-        return 'Folga';
+      case WorkDayType.holidayWorkedSwap:
+        return 'Troca';
+      case WorkDayType.compensatoryDayOff:
+        return 'Folga compensatória';
     }
   }
 
-  Color _dayTypeColor(DayType dayType) {
+  Color _workDayTypeColor(WorkDayType dayType) {
     switch (dayType) {
-      case DayType.regular:
+      case WorkDayType.regular:
         return const Color(0xFF8BE9FD);
-      case DayType.holiday:
+      case WorkDayType.saturdayCompensation:
+        return const Color(0xFFFFC857);
+      case WorkDayType.holiday:
         return const Color(0xFF72D7FF);
-      case DayType.dayOff:
+      case WorkDayType.holidayWorkedSwap:
+        return const Color(0xFFA29BFE);
+      case WorkDayType.compensatoryDayOff:
         return const Color(0xFFFFB199);
     }
   }

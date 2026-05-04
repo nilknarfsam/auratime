@@ -1,4 +1,5 @@
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/services/app_settings_service.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -58,18 +59,20 @@ class TimeRecordService {
     final dayRecord = await getTodayRecord(date: date);
     final day = _normalizeDate(date ?? DateTime.now());
     final settings = AppSettingsService.current;
+    final engine = WorkScheduleEngine(settings.workDayRule);
+    final shift = engine.getShiftForDate(day);
+    if (shift == null) {
+      dayRecord.date = day;
+      dayRecord.entryTime = null;
+      dayRecord.exitTime = null;
+      await _saveRecord(dayRecord);
+      return dayRecord;
+    }
 
     dayRecord.date = day;
-    dayRecord.entryTime = _timeForDay(
-      day,
-      settings.defaultEntryHour,
-      settings.defaultEntryMinute,
-    );
-    dayRecord.exitTime = _timeForDay(
-      day,
-      settings.defaultExitHour,
-      settings.defaultExitMinute,
-    );
+    dayRecord.entryTime = _timeForDay(day, shift.startHour, shift.startMinute);
+    final exitBase = shift.isOvernight ? day.add(const Duration(days: 1)) : day;
+    dayRecord.exitTime = _timeForDay(exitBase, shift.endHour, shift.endMinute);
 
     await _saveRecord(dayRecord);
     return dayRecord;
@@ -77,7 +80,9 @@ class TimeRecordService {
 
   Future<PunchRecordResult> recordCurrentTime({DateTime? now}) async {
     final currentTime = now ?? DateTime.now();
-    final dayRecord = await getTodayRecord(date: currentTime);
+    final overnightOpenRecord = await _getOpenOvernightRecord(currentTime);
+    final dayRecord =
+        overnightOpenRecord ?? await getTodayRecord(date: currentTime);
 
     if (dayRecord.entryTime == null) {
       dayRecord.entryTime = currentTime;
@@ -148,5 +153,29 @@ class TimeRecordService {
 
   DateTime _timeForDay(DateTime date, int hour, int minute) {
     return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  Future<TimeRecord?> _getOpenOvernightRecord(DateTime currentTime) async {
+    final yesterday = _normalizeDate(
+      currentTime.subtract(const Duration(days: 1)),
+    );
+    final record = await getTodayRecord(date: yesterday);
+    if (record.entryTime == null || record.exitTime != null) {
+      return null;
+    }
+    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
+    final shift = engine.getShiftForDate(yesterday);
+    if (shift == null || !shift.isOvernight) {
+      return null;
+    }
+    final expectedExit = engine.calculateExpectedExit(yesterday, record.entryTime!);
+    if (expectedExit == null) {
+      return null;
+    }
+    final maxWindow = expectedExit.add(const Duration(hours: 8));
+    if (currentTime.isAfter(maxWindow)) {
+      return null;
+    }
+    return record;
   }
 }

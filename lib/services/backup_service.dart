@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class BackupService {
-  static const int _backupVersion = 1;
+  static const int _backupVersion = 2;
   static const String _appName = 'AuraTime';
   static final DateFormat _fileDateFormat = DateFormat('yyyy-MM-dd_HH-mm');
   static final TimeRecordService _timeRecordService = TimeRecordService();
@@ -79,6 +79,7 @@ class BackupService {
         defaultExitMinute: settings.defaultExitMinute,
         lunchBreakMinutes: settings.lunchBreakMinutes,
         dailyGoalMinutes: settings.dailyGoalMinutes,
+        workDayRule: settings.workDayRule,
       ),
       records: records
           .map(
@@ -105,6 +106,7 @@ class BackupService {
       defaultExitMinute: payload.settings.defaultExitMinute,
       lunchBreakMinutes: payload.settings.lunchBreakMinutes,
       dailyGoalMinutes: payload.settings.dailyGoalMinutes,
+      workDayRule: payload.settings.workDayRule,
     );
     await AppSettingsService.save(importedSettings);
 

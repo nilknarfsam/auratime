@@ -1,3 +1,5 @@
+import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
+
 class BackupPayload {
   const BackupPayload({
     required this.backupVersion,
@@ -60,6 +62,7 @@ class BackupSettings {
     required this.defaultExitMinute,
     required this.lunchBreakMinutes,
     required this.dailyGoalMinutes,
+    required this.workDayRule,
   });
 
   final String userName;
@@ -69,6 +72,7 @@ class BackupSettings {
   final int defaultExitMinute;
   final int lunchBreakMinutes;
   final int dailyGoalMinutes;
+  final WorkDayRule workDayRule;
 
   Map<String, dynamic> toJson() {
     return {
@@ -79,6 +83,7 @@ class BackupSettings {
       'defaultExitMinute': defaultExitMinute,
       'lunchBreakMinutes': lunchBreakMinutes,
       'dailyGoalMinutes': dailyGoalMinutes,
+      'workDayRule': workDayRule.toJson(),
     };
   }
 
@@ -91,6 +96,9 @@ class BackupSettings {
       defaultExitMinute: (json['defaultExitMinute'] as num?)?.toInt() ?? 48,
       lunchBreakMinutes: (json['lunchBreakMinutes'] as num?)?.toInt() ?? 60,
       dailyGoalMinutes: (json['dailyGoalMinutes'] as num?)?.toInt() ?? 528,
+      workDayRule: WorkDayRule.fromJson(
+        (json['workDayRule'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{},
+      ),
     );
   }
 }

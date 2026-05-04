@@ -1,4 +1,5 @@
 import 'package:isar/isar.dart';
+import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/services/app_settings_service.dart';
 
 part 'time_record.g.dart';
@@ -43,20 +44,19 @@ class TimeRecord {
 
   @ignore
   Duration get balance {
-    final dailyGoal = AppSettingsService.current.dailyGoalDuration;
+    final settings = AppSettingsService.current;
+    final engine = WorkScheduleEngine(settings.workDayRule);
+    final expectedDuration = engine.calculateExpectedDuration(date);
     if (dayType == DayType.holiday) {
       return Duration.zero;
     }
     if (dayType == DayType.dayOff) {
-      if (totalWorkedHours == Duration.zero) {
-        return -dailyGoal;
-      }
-      return totalWorkedHours - dailyGoal;
+      return totalWorkedHours;
     }
     if (totalWorkedHours == Duration.zero) {
       return Duration.zero;
     }
-    return totalWorkedHours - dailyGoal;
+    return totalWorkedHours - expectedDuration;
   }
 
   @ignore
@@ -65,8 +65,8 @@ class TimeRecord {
       return null;
     }
     final settings = AppSettingsService.current;
-    final totalJourney = settings.dailyGoalDuration + settings.lunchBreakDuration;
-    return entryTime!.add(totalJourney);
+    final engine = WorkScheduleEngine(settings.workDayRule);
+    return engine.calculateExpectedExit(date, entryTime!);
   }
 
   @ignore

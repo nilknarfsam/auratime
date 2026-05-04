@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
+import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/services/app_settings_service.dart';
 import 'package:flutter/material.dart';
@@ -52,11 +54,14 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settings = AppSettingsService.current;
+    final engine = WorkScheduleEngine(settings.workDayRule);
     final progress = _todayProgress(settings);
     final workedToday = _workedDurationToday(settings);
-    final status = _statusText();
+    final dayType = engine.getDayType(widget.todayRecord.date);
+    final status = _statusText(dayType);
     final statusColor = _statusColor(theme);
     final predictedExit = _predictedExit(settings);
+    final expectedDuration = engine.calculateExpectedDuration(widget.todayRecord.date);
 
     return Column(
       children: [
@@ -100,7 +105,7 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${(progress * 100).toStringAsFixed(0)}% • ${_formatDuration(workedToday)} de ${_formatDuration(settings.dailyGoalDuration)}',
+                  '${(progress * 100).toStringAsFixed(0)}% • ${_formatDuration(workedToday)} de ${_formatDuration(expectedDuration)}',
                   style: theme.textTheme.bodyMedium,
                 ),
                 if (predictedExit != null) ...[
@@ -143,14 +148,20 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
     );
   }
 
-  String _statusText() {
-    final record = widget.todayRecord;
-    if (record.dayType == DayType.holiday) {
+  String _statusText(WorkDayType dayType) {
+    if (dayType == WorkDayType.holiday) {
       return 'Feriado';
     }
-    if (record.dayType == DayType.dayOff) {
-      return 'Folga';
+    if (dayType == WorkDayType.compensatoryDayOff) {
+      return 'Folga compensatória';
     }
+    if (dayType == WorkDayType.holidayWorkedSwap) {
+      return 'Troca de feriado';
+    }
+    if (dayType == WorkDayType.saturdayCompensation) {
+      return 'Sábado compensado';
+    }
+    final record = widget.todayRecord;
     if (record.entryTime == null) {
       return 'Aguardando entrada';
     }
@@ -161,7 +172,8 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
   }
 
   Color _statusColor(ThemeData theme) {
-    final status = _statusText();
+    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
+    final status = _statusText(engine.getDayType(widget.todayRecord.date));
     if (status == 'Dia finalizado') {
       return const Color(0xFF56F09B);
     }
@@ -194,11 +206,12 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
 
   double _todayProgress(AppSettings settings) {
     final record = widget.todayRecord;
-    if (record.dayType == DayType.holiday || record.dayType == DayType.dayOff) {
+    final engine = WorkScheduleEngine(settings.workDayRule);
+    if (!engine.isWorkingDay(record.date)) {
       return 0;
     }
     final worked = _workedDurationToday(settings).inMinutes;
-    final goal = settings.dailyGoalDuration.inMinutes;
+    final goal = engine.calculateExpectedDuration(record.date).inMinutes;
     if (goal <= 0) {
       return 0;
     }
@@ -208,14 +221,14 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
 
   DateTime? _predictedExit(AppSettings settings) {
     final record = widget.todayRecord;
-    if (record.dayType != DayType.regular ||
-        record.entryTime == null ||
-        record.exitTime != null) {
+    if (record.entryTime == null || record.exitTime != null) {
       return null;
     }
-    return record.entryTime!.add(
-      settings.dailyGoalDuration + settings.lunchBreakDuration,
-    );
+    final engine = WorkScheduleEngine(settings.workDayRule);
+    if (!engine.isWorkingDay(record.date)) {
+      return null;
+    }
+    return engine.calculateExpectedExit(record.date, record.entryTime!);
   }
 
   String _formatDuration(Duration duration) {
