@@ -37,6 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ValueNotifier<int> _todayRevision = ValueNotifier<int>(0);
   final ValueNotifier<int> _weekRevision = ValueNotifier<int>(0);
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier<bool>(false);
+  bool _todayLoadFailed = false;
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
   late final DateFormat _hourFormatter;
@@ -75,117 +76,132 @@ class _DashboardScreenState extends State<DashboardScreen>
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            const scrollPadding = EdgeInsets.fromLTRB(20, 16, 20, 20);
+            final minScrollContentHeight = constraints.hasBoundedHeight
+                ? (constraints.maxHeight - scrollPadding.vertical).clamp(0.0, double.infinity)
+                : 0.0;
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              padding: scrollPadding,
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 36),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const DashboardHeader(),
-                      const SizedBox(height: 14),
-                      DashboardInsightsPanel(
-                        todayRevision: _todayRevision,
-                        weekRevision: _weekRevision,
-                        todayRecord: () => _todayRecord,
-                        weekWorkedDays: _weekWorkedDays,
-                        weekWorkedHours: _weekWorkedHours,
-                        weekBalance: _weekBalance,
-                        insights: _insights,
-                      ),
-                      const SizedBox(height: 24),
-                      RepaintBoundary(
-                        child: AnimatedBuilder(
-                          animation: _punchAreaListenable,
-                          builder: (context, _) {
-                            final isLoading = _loadingNotifier.value;
-                            final engine = WorkScheduleEngine(settings.workDayRule);
-                            final dayType = engine.getDayType(_todayRecord.date);
-                            final shift = engine.getShiftForDate(_todayRecord.date);
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: theme.colorScheme.outline.withValues(alpha: 0.18),
-                                    ),
-                                    color: theme.colorScheme.surface.withValues(alpha: 0.18),
-                                  ),
-                                  child: Center(
-                                    child: isLoading
-                                        ? const CircularProgressIndicator()
-                                        : PunchButton(
-                                            canPunch: !isLoading &&
-                                                _isWorkingDay(dayType) &&
-                                                !_isDayFinalized,
-                                            isDayFinalized: _isDayFinalized,
-                                            onPressed: !isLoading &&
-                                                    _isWorkingDay(dayType) &&
-                                                    !_isDayFinalized
-                                                ? _recordNow
-                                                : null,
-                                            pulseAnimation: _pulseAnimation,
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(height: 28),
-                                if (_isWorkingDay(dayType)) ...[
-                                  TimeRecordCard(
-                                    label: 'Entrada',
-                                    value: _todayRecord.entryTime,
-                                    expected: _formatExpectedTime(
-                                      shift?.startHour ?? settings.defaultEntryHour,
-                                      shift?.startMinute ?? settings.defaultEntryMinute,
-                                    ),
-                                    timeFormatter: _hourFormatter,
-                                    onTap: isLoading
-                                        ? null
-                                        : () => _editRecordTime(
-                                              _RecordField.entry,
-                                              _todayRecord.entryTime,
-                                            ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TimeRecordCard(
-                                    label: 'Saída',
-                                    value: _todayRecord.exitTime,
-                                    expected: _formatExpectedTime(
-                                      shift?.endHour ?? settings.defaultExitHour,
-                                      shift?.endMinute ?? settings.defaultExitMinute,
-                                    ),
-                                    timeFormatter: _hourFormatter,
-                                    onTap: isLoading
-                                        ? null
-                                        : () => _editRecordTime(
-                                              _RecordField.exit,
-                                              _todayRecord.exitTime,
-                                            ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _buildNoteSection(theme, isLoading),
-                                ] else
-                                  _buildSpecialDayMessage(theme, dayType),
-                                const Spacer(),
-                                Align(
-                                  child: TextButton(
-                                    onPressed: isLoading || !_isWorkingDay(dayType)
-                                        ? null
-                                        : _fillWithDefaultSchedule,
-                                    child: const Text('Preencher com horários padrões'),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
+                constraints: BoxConstraints(minHeight: minScrollContentHeight),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const DashboardHeader(),
+                    const SizedBox(height: 14),
+                    DashboardInsightsPanel(
+                      todayRevision: _todayRevision,
+                      weekRevision: _weekRevision,
+                      todayRecord: () => _todayRecord,
+                      weekWorkedDays: _weekWorkedDays,
+                      weekWorkedHours: _weekWorkedHours,
+                      weekBalance: _weekBalance,
+                      insights: _insights,
+                    ),
+                    if (_todayLoadFailed) ...[
+                      const SizedBox(height: 16),
+                      _buildLoadFailedBanner(theme),
                     ],
-                  ),
+                    const SizedBox(height: 24),
+                    RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _punchAreaListenable,
+                        builder: (context, _) {
+                          final isLoading = _loadingNotifier.value;
+                          final engine = WorkScheduleEngine(settings.workDayRule);
+                          final dayType = engine.getDayType(_todayRecord.date);
+                          final shift = engine.getShiftForDate(_todayRecord.date);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: theme.colorScheme.outline.withValues(alpha: 0.18),
+                                  ),
+                                  color: theme.colorScheme.surface.withValues(alpha: 0.18),
+                                ),
+                                child: Center(
+                                  child: isLoading
+                                      ? const Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(height: 8),
+                                            CircularProgressIndicator(),
+                                            SizedBox(height: 10),
+                                            Text('Carregando…'),
+                                            SizedBox(height: 8),
+                                          ],
+                                        )
+                                      : PunchButton(
+                                          canPunch: !isLoading &&
+                                              _isWorkingDay(dayType) &&
+                                              !_isDayFinalized,
+                                          isDayFinalized: _isDayFinalized,
+                                          onPressed: !isLoading &&
+                                                  _isWorkingDay(dayType) &&
+                                                  !_isDayFinalized
+                                              ? _recordNow
+                                              : null,
+                                          pulseAnimation: _pulseAnimation,
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 28),
+                              if (_isWorkingDay(dayType)) ...[
+                                TimeRecordCard(
+                                  label: 'Entrada',
+                                  value: _todayRecord.entryTime,
+                                  expected: _formatExpectedTime(
+                                    shift?.startHour ?? settings.defaultEntryHour,
+                                    shift?.startMinute ?? settings.defaultEntryMinute,
+                                  ),
+                                  timeFormatter: _hourFormatter,
+                                  onTap: isLoading
+                                      ? null
+                                      : () => _editRecordTime(
+                                            _RecordField.entry,
+                                            _todayRecord.entryTime,
+                                          ),
+                                ),
+                                const SizedBox(height: 12),
+                                TimeRecordCard(
+                                  label: 'Saída',
+                                  value: _todayRecord.exitTime,
+                                  expected: _formatExpectedTime(
+                                    shift?.endHour ?? settings.defaultExitHour,
+                                    shift?.endMinute ?? settings.defaultExitMinute,
+                                  ),
+                                  timeFormatter: _hourFormatter,
+                                  onTap: isLoading
+                                      ? null
+                                      : () => _editRecordTime(
+                                            _RecordField.exit,
+                                            _todayRecord.exitTime,
+                                          ),
+                                ),
+                                const SizedBox(height: 14),
+                                _buildNoteSection(theme, isLoading),
+                              ] else
+                                _buildSpecialDayMessage(theme, dayType),
+                              const SizedBox(height: 24),
+                              Align(
+                                child: TextButton(
+                                  onPressed: isLoading || !_isWorkingDay(dayType)
+                                      ? null
+                                      : _fillWithDefaultSchedule,
+                                  child: const Text('Preencher com horários padrões'),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -199,6 +215,41 @@ class _DashboardScreenState extends State<DashboardScreen>
     return dayType == WorkDayType.regular ||
         dayType == WorkDayType.saturdayCompensation ||
         dayType == WorkDayType.holidayWorkedSwap;
+  }
+
+  Widget _buildLoadFailedBanner(ThemeData theme) {
+    return Card(
+      color: theme.colorScheme.errorContainer.withValues(alpha: 0.45),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Nenhum dado carregado',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Não foi possível carregar o registro de hoje.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _loadTodayRecord,
+                child: const Text('Tentar novamente'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildSpecialDayMessage(ThemeData theme, WorkDayType dayType) {
@@ -233,19 +284,26 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _loadTodayRecord() async {
+    if (mounted) {
+      setState(() => _todayLoadFailed = false);
+    }
     _loadingNotifier.value = true;
     try {
       final record = await _timeRecordService.getTodayRecord();
       if (!mounted) {
         return;
       }
-      _todayRecord = record;
+      setState(() {
+        _todayRecord = record;
+        _todayLoadFailed = false;
+      });
       _loadingNotifier.value = false;
       _todayRevision.value++;
       unawaited(_refreshWeekSummary());
       unawaited(syncHomeWidgetStatus());
     } catch (_) {
       if (mounted) {
+        setState(() => _todayLoadFailed = true);
         _loadingNotifier.value = false;
       }
     }

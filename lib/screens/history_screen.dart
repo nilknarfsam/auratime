@@ -112,50 +112,87 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: _isLoading
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text('Histórico', style: theme.textTheme.headlineMedium),
-                    const Expanded(
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text('Histórico', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 8),
-                    _buildFilterSection(theme),
-                    const SizedBox(height: 12),
-                    _buildSummaryCard(theme),
-                    const SizedBox(height: 12),
-                    Expanded(child: _buildRefreshableHistoryList(theme)),
-                  ],
-                ),
-        ),
+      body: Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: _isLoading
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          Text('Histórico', style: theme.textTheme.headlineMedium),
+                          const Expanded(
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          Text('Histórico', style: theme.textTheme.headlineMedium),
+                          const SizedBox(height: 8),
+                          _buildFilterSection(theme),
+                          const SizedBox(height: 12),
+                          _buildSummaryCard(theme),
+                          const SizedBox(height: 12),
+                          Expanded(child: _buildRefreshableHistoryList(theme)),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: SafeArea(
+              minimum: const EdgeInsets.only(right: 8, bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4, bottom: 4),
+                child: _buildPdfFab(theme),
+              ),
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+    );
+  }
+
+  /// PDF action pinned above the tab content bottom edge (clear of list cards).
+  /// Uses [Stack] placement instead of [Scaffold.floatingActionButton] so layout
+  /// stays correct inside the shell [IndexedStack].
+  Widget _buildPdfFab(ThemeData theme) {
+    return Material(
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(18),
+      child: FloatingActionButton.extended(
         heroTag: 'history_pdf_report_fab',
-        onPressed: _isLoading || _isGeneratingReport
-            ? null
-            : _generatePdfReport,
-        icon: _isGeneratingReport
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.picture_as_pdf_rounded),
-        label: const Text('Relatório PDF'),
+        tooltip: 'Relatório PDF',
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        highlightElevation: 0,
+        onPressed: _isLoading || _isGeneratingReport ? null : _generatePdfReport,
+        icon: _isGeneratingReport
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.colorScheme.onSurface,
+                ),
+              )
+            : Icon(Icons.picture_as_pdf_rounded, color: theme.colorScheme.secondary),
+        label: const Text('Relatório PDF'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: theme.colorScheme.outline.withValues(alpha: 0.35),
+          ),
+        ),
         backgroundColor: theme.colorScheme.surfaceContainerHighest,
         foregroundColor: theme.colorScheme.onSurface,
       ),
@@ -489,7 +526,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       onRefresh: _refreshHistory,
       child: rows.isEmpty
           ? ListView(
-              padding: const EdgeInsets.only(bottom: 100),
+              padding: const EdgeInsets.only(bottom: 112),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 Card(
@@ -507,7 +544,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ],
             )
           : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 100),
+              padding: const EdgeInsets.only(bottom: 112),
               physics: const AlwaysScrollableScrollPhysics(),
               prototypeItem: _HistoryRecordTile.prototype(theme),
               itemCount: rows.length * 2 - 1,
