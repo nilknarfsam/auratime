@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:auratime/services/backup_service.dart';
@@ -12,6 +14,8 @@ class SettingsScreen extends StatefulWidget {
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
+
+enum _SaveIndicatorState { idle, saving, saved, error }
 
 class _SettingsScreenState extends State<SettingsScreen> {
   static const double _cardRadius = 16;
@@ -31,7 +35,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late WorkShift _saturdayShift;
   late List<Holiday> _holidays;
   late List<CompanyCalendarRule> _companyRules;
-  bool _isSaving = false;
+  Timer? _nameDebounce;
+  Timer? _saveStateTimer;
+  int _saveGeneration = 0;
+  int _latestAppliedGeneration = 0;
+  _SaveIndicatorState _saveState = _SaveIndicatorState.idle;
   bool _isBackupBusy = false;
 
   @override
@@ -64,6 +72,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    _nameDebounce?.cancel();
+    _saveStateTimer?.cancel();
     _userNameController.dispose();
     super.dispose();
   }
@@ -71,13 +81,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sectionTitleStyle = theme.textTheme.titleMedium?.copyWith(
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-    );
-    final subtleTextStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
-    );
 
     return Scaffold(
       body: SafeArea(
@@ -85,346 +88,351 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             children: [
-            Text('Configurações', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 8),
-            Text(
-              'Personalize seus dados e jornada padrão.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('Configurações', style: theme.textTheme.headlineMedium),
+                  ),
+                  _buildSaveIndicator(theme),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(_cardRadius),
-              ),
-              child: Padding(
-                padding: _cardPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Perfil', style: sectionTitleStyle),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _userNameController,
-                      maxLength: 40,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome do usuário',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 8),
+              Text(
+                'Seções organizadas com salvamento automático seguro.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(_cardRadius),
-              ),
-              child: Padding(
-                padding: _cardPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Jornada de trabalho',
-                      style: sectionTitleStyle,
-                    ),
-                    const SizedBox(height: 10),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isSaving ? null : () => _showDefaultShiftBottomSheet(context),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Turno padrão',
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.2,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _shiftTitle(_defaultShiftType),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false,
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _shiftRange(_defaultShiftType),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 28,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-                      title: Text(
-                        'Usar feriados nacionais do Brasil',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      value: _useBrazilNationalHolidays,
-                      onChanged: _isSaving
-                          ? null
-                          : (value) {
-                              setState(() {
-                                _useBrazilNationalHolidays = value;
-                              });
-                            },
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-                      title: Text(
-                        'Usar feriados de Manaus/Amazonas',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      value: _useManausAmazonasHolidays,
-                      onChanged: _isSaving
-                          ? null
-                          : (value) {
-                              setState(() {
-                                _useManausAmazonasHolidays = value;
-                              });
-                            },
-                    ),
-                    _buildShiftEditor(
-                      title: 'Turno customizado',
-                      shift: _customShift,
-                      onUpdate: (shift) {
-                        setState(() {
-                          _customShift = shift.copyWith(type: ShiftType.custom);
-                        });
-                      },
-                    ),
-                    _buildShiftEditor(
-                      title: 'Turno modelo para sábado compensado',
-                      shift: _saturdayShift,
-                      onUpdate: (shift) {
-                        setState(() {
-                          _saturdayShift = shift.copyWith(type: ShiftType.custom);
-                        });
-                      },
-                    ),
-                    Text(
-                      'Esse turno é usado como modelo quando você cria uma regra de sábado compensado no calendário da empresa.',
-                      style: subtleTextStyle,
-                    ),
-                    const Divider(height: 20),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Gerenciar calendário da empresa'),
-                      subtitle: Text(
-                        '${_companyRules.length} regras explícitas • ${_holidays.length} feriados legados',
-                      ),
-                    ),
-                    Text(
-                      'Sábados e domingos são folga por padrão. Para trabalhar em um sábado, adicione uma regra no calendário da empresa.',
-                      style: subtleTextStyle,
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        _buildCalendarRuleButton(
-                          label: 'Sábado trabalhado',
-                          onPressed: _isSaving
-                              ? null
-                              : () => _addCompanyRule(WorkDayType.saturdayCompensation),
-                        ),
-                        _buildCalendarRuleButton(
-                          label: 'Feriado trabalhado por troca',
-                          onPressed: _isSaving
-                              ? null
-                              : () => _addCompanyRule(WorkDayType.holidayWorkedSwap),
-                        ),
-                        _buildCalendarRuleButton(
-                          label: 'Folga compensatória',
-                          onPressed: _isSaving
-                              ? null
-                              : () =>
-                                  _addCompanyRule(WorkDayType.compensatoryDayOff),
-                        ),
-                        _buildCalendarRuleButton(
-                          label: 'Feriado',
-                          onPressed: _isSaving
-                              ? null
-                              : () => _addCompanyRule(WorkDayType.holiday),
-                        ),
-                        _buildCalendarRuleButton(
-                          label: 'Dia normal por exceção',
-                          onPressed: _isSaving
-                              ? null
-                              : () => _addCompanyRule(WorkDayType.regular),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ..._buildCalendarRuleChips(theme),
-                    const Divider(height: 20),
-                    _buildTimeTile(
-                      context: context,
-                      label: 'Duração do almoço',
-                      value: _formatDuration(_lunchBreak),
-                      onTap: () => _pickDuration(
-                        initial: _lunchBreak,
-                        onSelected: (value) {
-                          setState(() {
-                            _lunchBreak = value;
-                          });
-                        },
-                      ),
-                    ),
-                    _buildTimeTile(
-                      context: context,
-                      label: 'Meta diária (legado)',
-                      value: _formatDuration(_dailyGoal),
-                      onTap: () => _pickDuration(
-                        initial: _dailyGoal,
-                        onSelected: (value) {
-                          setState(() {
-                            _dailyGoal = value;
-                          });
-                        },
-                      ),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Início do ciclo mensal'),
-                      subtitle: Text(
-                        'Dia $_cycleStartDay\nUse 1 para mês comum ou 16 para ciclo da empresa de 16 a 15.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _isSaving ? null : _pickCycleStartDay,
-                    ),
-                    _buildTimeTile(
-                      context: context,
-                      label: 'Horário padrão de entrada (compatibilidade)',
-                      value: _defaultEntryTime.format(context),
-                      onTap: () => _pickTime(
-                        initial: _defaultEntryTime,
-                        onSelected: (value) {
-                          setState(() {
-                            _defaultEntryTime = value;
-                          });
-                        },
-                      ),
-                    ),
-                    _buildTimeTile(
-                      context: context,
-                      label: 'Horário padrão de saída (compatibilidade)',
-                      value: _defaultExitTime.format(context),
-                      onTap: () => _pickTime(
-                        initial: _defaultExitTime,
-                        onSelected: (value) {
-                          setState(() {
-                            _defaultExitTime = value;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: _isSaving ? null : _save,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_rounded),
-              label: const Text('Salvar configurações'),
-            ),
-            const SizedBox(height: 10),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(_cardRadius),
-              ),
-              child: Padding(
-                padding: _cardPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Backup e segurança',
-                      style: sectionTitleStyle,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Use o backup para preservar seus dados antes de atualizar, trocar de celular ou reinstalar o app.',
-                      style: subtleTextStyle,
-                    ),
-                    const SizedBox(height: 8),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.upload_file_rounded),
-                      title: const Text('Exportar backup'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _isBackupBusy ? null : _exportBackup,
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.download_rounded),
-                      title: const Text('Importar backup'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _isBackupBusy ? null : _importBackup,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+              const SizedBox(height: 12),
+              _buildProfileSection(theme),
+              const SizedBox(height: 10),
+              _buildWorkdaySection(theme),
+              const SizedBox(height: 10),
+              _buildSaturdaySection(theme),
+              const SizedBox(height: 10),
+              _buildCalendarSection(theme),
+              const SizedBox(height: 10),
+              _buildCycleSection(theme),
+              const SizedBox(height: 10),
+              _buildBackupSection(theme),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSaveIndicator(ThemeData theme) {
+    final (text, icon, color) = switch (_saveState) {
+      _SaveIndicatorState.idle => ('', Icons.check_circle_outline_rounded, theme.colorScheme.onSurfaceVariant),
+      _SaveIndicatorState.saving => ('Salvando...', Icons.sync_rounded, theme.colorScheme.secondary),
+      _SaveIndicatorState.saved => ('Salvo', Icons.check_circle_rounded, const Color(0xFF56F09B)),
+      _SaveIndicatorState.error => ('Erro ao salvar', Icons.error_outline_rounded, theme.colorScheme.error),
+    };
+    if (text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+
+  TextStyle? _sectionTitleStyle(ThemeData theme) {
+    return theme.textTheme.titleMedium?.copyWith(fontSize: 16, fontWeight: FontWeight.w700);
+  }
+
+  TextStyle? _helperStyle(ThemeData theme) {
+    return theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
+    );
+  }
+
+  Widget _sectionCard({
+    required ThemeData theme,
+    required IconData icon,
+    required String title,
+    String? helper,
+    required List<Widget> children,
+  }) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_cardRadius)),
+      child: Padding(
+        padding: _cardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: theme.colorScheme.secondary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title, style: _sectionTitleStyle(theme))),
+              ],
+            ),
+            if (helper != null) ...[
+              const SizedBox(height: 6),
+              Text(helper, style: _helperStyle(theme)),
+            ],
+            const SizedBox(height: 8),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileSection(ThemeData theme) {
+    return _sectionCard(
+      theme: theme,
+      icon: Icons.person_outline_rounded,
+      title: 'Perfil',
+      children: [
+        TextField(
+          controller: _userNameController,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.words,
+          onChanged: (_) => _scheduleAutoSave(debounce: true),
+          onEditingComplete: () => _scheduleAutoSave(),
+          decoration: const InputDecoration(
+            labelText: 'Nome do usuário',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWorkdaySection(ThemeData theme) {
+    return _sectionCard(
+      theme: theme,
+      icon: Icons.work_history_outlined,
+      title: 'Jornada de trabalho',
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _showDefaultShiftBottomSheet(context),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Turno padrão', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 6),
+                        Text(_shiftTitle(_defaultShiftType), style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 2),
+                        Text(
+                          _shiftRange(_defaultShiftType),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, size: 28, color: theme.colorScheme.onSurfaceVariant),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_defaultShiftType == ShiftType.custom) ...[
+          const SizedBox(height: 4),
+          _buildShiftEditor(
+            title: 'Turno customizado',
+            shift: _customShift,
+            onUpdate: (shift) {
+              setState(() => _customShift = shift.copyWith(type: ShiftType.custom));
+              _scheduleAutoSave();
+            },
+          ),
+        ],
+        _buildTimeTile(
+          context: context,
+          label: 'Duração do almoço',
+          value: _formatDuration(_lunchBreak),
+          onTap: () => _pickDuration(
+            initial: _lunchBreak,
+            onSelected: (value) {
+              setState(() => _lunchBreak = value);
+              _scheduleAutoSave();
+            },
+          ),
+        ),
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          title: Text('Avançado (compatibilidade)', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+          children: [
+            _buildTimeTile(
+              context: context,
+              label: 'Meta diária (legado)',
+              value: _formatDuration(_dailyGoal),
+              onTap: () => _pickDuration(
+                initial: _dailyGoal,
+                onSelected: (value) {
+                  setState(() => _dailyGoal = value);
+                  _scheduleAutoSave();
+                },
+              ),
+            ),
+            _buildTimeTile(
+              context: context,
+              label: 'Horário padrão de entrada (compatibilidade)',
+              value: _defaultEntryTime.format(context),
+              onTap: () => _pickTime(
+                initial: _defaultEntryTime,
+                onSelected: (value) {
+                  setState(() => _defaultEntryTime = value);
+                  _scheduleAutoSave();
+                },
+              ),
+            ),
+            _buildTimeTile(
+              context: context,
+              label: 'Horário padrão de saída (compatibilidade)',
+              value: _defaultExitTime.format(context),
+              onTap: () => _pickTime(
+                initial: _defaultExitTime,
+                onSelected: (value) {
+                  setState(() => _defaultExitTime = value);
+                  _scheduleAutoSave();
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSaturdaySection(ThemeData theme) {
+    return _sectionCard(
+      theme: theme,
+      icon: Icons.event_repeat_rounded,
+      title: 'Sábado e compensações',
+      helper: 'Sábados e domingos são folga por padrão; use regra do calendário para marcar sábado trabalhado.',
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Ativar modelo de sábado compensado'),
+          value: _saturdayCompensationEnabled,
+          onChanged: (value) {
+            setState(() => _saturdayCompensationEnabled = value);
+            _scheduleAutoSave();
+          },
+        ),
+        if (_saturdayCompensationEnabled)
+          _buildShiftEditor(
+            title: 'Turno modelo para sábado compensado',
+            shift: _saturdayShift,
+            onUpdate: (shift) {
+              setState(() => _saturdayShift = shift.copyWith(type: ShiftType.custom));
+              _scheduleAutoSave();
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarSection(ThemeData theme) {
+    return _sectionCard(
+      theme: theme,
+      icon: Icons.calendar_month_outlined,
+      title: 'Calendário da empresa',
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: const Text('Usar feriados nacionais do Brasil'),
+          value: _useBrazilNationalHolidays,
+          onChanged: (value) {
+            setState(() => _useBrazilNationalHolidays = value);
+            _scheduleAutoSave();
+          },
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: const Text('Usar feriados de Manaus/Amazonas'),
+          value: _useManausAmazonasHolidays,
+          onChanged: (value) {
+            setState(() => _useManausAmazonasHolidays = value);
+            _scheduleAutoSave();
+          },
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _buildCalendarRuleButton(label: 'Sábado trabalhado', onPressed: () => _addCompanyRule(WorkDayType.saturdayCompensation)),
+            _buildCalendarRuleButton(label: 'Feriado trabalhado por troca', onPressed: () => _addCompanyRule(WorkDayType.holidayWorkedSwap)),
+            _buildCalendarRuleButton(label: 'Folga compensatória', onPressed: () => _addCompanyRule(WorkDayType.compensatoryDayOff)),
+            _buildCalendarRuleButton(label: 'Feriado', onPressed: () => _addCompanyRule(WorkDayType.holiday)),
+            _buildCalendarRuleButton(label: 'Dia normal por exceção', onPressed: () => _addCompanyRule(WorkDayType.regular)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ..._buildCalendarRuleChips(theme),
+      ],
+    );
+  }
+
+  Widget _buildCycleSection(ThemeData theme) {
+    return _sectionCard(
+      theme: theme,
+      icon: Icons.timelapse_rounded,
+      title: 'Ciclo mensal',
+      helper: 'Use 1 para mês comum ou 16 para ciclo da empresa de 16 a 15.',
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Início do ciclo mensal'),
+          subtitle: Text(
+            'Dia $_cycleStartDay',
+            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: _pickCycleStartDay,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackupSection(ThemeData theme) {
+    return _sectionCard(
+      theme: theme,
+      icon: Icons.shield_outlined,
+      title: 'Backup e segurança',
+      helper: 'Use o backup para preservar seus dados antes de atualizar, trocar de celular ou reinstalar o app.',
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.upload_file_rounded),
+          title: const Text('Exportar backup'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: _isBackupBusy ? null : _exportBackup,
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.download_rounded),
+          title: const Text('Importar backup'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: _isBackupBusy ? null : _importBackup,
+        ),
+      ],
     );
   }
 
@@ -443,7 +451,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: _isSaving ? null : onTap,
+      onTap: onTap,
     );
   }
 
@@ -591,6 +599,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             return;
           }
           setState(() => _defaultShiftType = type);
+          _scheduleAutoSave();
         },
         borderRadius: BorderRadius.circular(16),
         child: ConstrainedBox(
@@ -749,16 +758,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _cycleStartDay = selected.clamp(1, 28);
     });
+    _scheduleAutoSave();
   }
 
-  Future<void> _save() async {
+  AppSettings _composeCurrentSettings() {
     final userName = _userNameController.text.trim();
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    final newSettings = AppSettingsService.current.copyWith(
+    return AppSettingsService.current.copyWith(
       userName: userName,
       defaultEntryHour: _effectiveDefaultShift.startHour,
       defaultEntryMinute: _effectiveDefaultShift.startMinute,
@@ -778,28 +783,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
         companyCalendarRules: _companyRules,
       ),
     );
+  }
 
+  void _scheduleAutoSave({bool debounce = false}) {
+    _nameDebounce?.cancel();
+    if (debounce) {
+      _nameDebounce = Timer(const Duration(milliseconds: 550), _persistSettings);
+      return;
+    }
+    unawaited(_persistSettings());
+  }
+
+  Future<void> _persistSettings() async {
+    final generation = ++_saveGeneration;
+    _setSaveState(_SaveIndicatorState.saving);
+    final snapshot = _composeCurrentSettings();
     try {
-      await AppSettingsService.save(newSettings);
-      if (!mounted) {
+      await AppSettingsService.save(snapshot);
+      if (!mounted || generation < _latestAppliedGeneration) {
         return;
       }
+      _latestAppliedGeneration = generation;
       widget.onSettingsSaved();
-      SnackBarHelper.showSuccess(context, 'Configurações salvas com sucesso!');
+      _setSaveState(_SaveIndicatorState.saved);
     } catch (_) {
-      if (!mounted) {
+      if (!mounted || generation < _latestAppliedGeneration) {
         return;
       }
-      SnackBarHelper.showError(
-        context,
-        'Não foi possível salvar as configurações.',
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
+      _setSaveState(_SaveIndicatorState.error);
+    }
+  }
+
+  void _setSaveState(_SaveIndicatorState state) {
+    if (!mounted) {
+      return;
+    }
+    _saveStateTimer?.cancel();
+    setState(() {
+      _saveState = state;
+    });
+    if (state == _SaveIndicatorState.saved || state == _SaveIndicatorState.error) {
+      _saveStateTimer = Timer(const Duration(seconds: 2), () {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _saveState = _SaveIndicatorState.idle);
+      });
     }
   }
 
@@ -970,6 +999,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() {
                 _holidays.remove(holiday);
               });
+              _scheduleAutoSave();
             },
           ),
         ),
@@ -989,6 +1019,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() {
                 _companyRules.remove(rule);
               });
+              _scheduleAutoSave();
             },
           ),
         ),
@@ -1052,6 +1083,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ];
       });
+      _scheduleAutoSave();
     }
     noteController.dispose();
   }
