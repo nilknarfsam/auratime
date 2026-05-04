@@ -8,9 +8,13 @@ import 'package:auratime/services/app_settings_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-class DashboardInsightsPanel extends StatefulWidget {
+/// Dashboard insights: status/progress tick locally; insights and weekly summary
+/// rebuild only when [weekRevision] notifies (localized updates from parent).
+class DashboardInsightsPanel extends StatelessWidget {
   const DashboardInsightsPanel({
     super.key,
+    required this.todayRevision,
+    required this.weekRevision,
     required this.todayRecord,
     required this.weekWorkedDays,
     required this.weekWorkedHours,
@@ -18,38 +22,107 @@ class DashboardInsightsPanel extends StatefulWidget {
     required this.insights,
   });
 
-  final TimeRecord todayRecord;
+  final ValueNotifier<int> todayRevision;
+  final ValueNotifier<int> weekRevision;
+  final TimeRecord Function() todayRecord;
   final int weekWorkedDays;
   final Duration weekWorkedHours;
   final Duration weekBalance;
   final List<InsightItem> insights;
 
   @override
-  State<DashboardInsightsPanel> createState() => _DashboardInsightsPanelState();
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedBuilder(
+          animation: todayRevision,
+          builder: (context, child) {
+            return RepaintBoundary(
+              child: _DashboardLiveMetricsBlock(
+                key: ValueKey(todayRecord().date),
+                todayRecord: todayRecord,
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        AnimatedBuilder(
+          animation: weekRevision,
+          builder: (context, child) {
+            return RepaintBoundary(
+              child: _InsightsCard(insights: insights),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        AnimatedBuilder(
+          animation: weekRevision,
+          builder: (context, child) {
+            return RepaintBoundary(
+              child: _WeeklySummaryCard(
+                weekBalance: weekBalance,
+                weekWorkedDays: weekWorkedDays,
+                weekWorkedHours: weekWorkedHours,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
 }
 
-class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
+/// Status row, meta chips, and journey progress. Single [Timer] rebuilds this subtree every 30s.
+class _DashboardLiveMetricsBlock extends StatefulWidget {
+  const _DashboardLiveMetricsBlock({
+    super.key,
+    required this.todayRecord,
+  });
+
+  final TimeRecord Function() todayRecord;
+
+  @override
+  State<_DashboardLiveMetricsBlock> createState() => _DashboardLiveMetricsBlockState();
+}
+
+class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> {
   late DateTime _now;
   Timer? _refreshTimer;
   final DateFormat _timeFormatter = DateFormat('HH:mm');
+  late WorkScheduleEngine _engine;
+  late DailyStatusEngine _statusEngine;
 
   @override
   void initState() {
     super.initState();
     _now = DateTime.now();
+    _bindEngines();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _now = DateTime.now();
-      });
+      setState(() => _now = DateTime.now());
     });
+    AppSettingsService.settingsListenable.addListener(_onSettingsChanged);
+  }
+
+  void _bindEngines() {
+    _engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
+    _statusEngine = DailyStatusEngine(workScheduleEngine: _engine);
+  }
+
+  void _onSettingsChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(_bindEngines);
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    AppSettingsService.settingsListenable.removeListener(_onSettingsChanged);
     super.dispose();
   }
 
@@ -57,139 +130,96 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settings = AppSettingsService.current;
-    final engine = WorkScheduleEngine(settings.workDayRule);
-    final progress = _todayProgress(settings);
-    final workedToday = _workedDurationToday(settings);
-    final statusResult = DailyStatusEngine(
-      workScheduleEngine: engine,
-    ).evaluate(now: _now, todayRecord: widget.todayRecord);
+    final record = widget.todayRecord();
+    final statusResult = _statusEngine.evaluate(now: _now, todayRecord: record);
     final statusColor = _statusColor(theme, statusResult.severity);
-    final predictedExit = _predictedExit(settings);
-    final expectedDuration = engine.calculateExpectedDuration(widget.todayRecord.date);
-    final shift = engine.getShiftForDate(widget.todayRecord.date);
-    final shiftLabel = engine.getDisplayDayLabel(widget.todayRecord.date);
+    final predictedExit = _predictedExit(settings, record);
+    final shift = _engine.getShiftForDate(record.date);
+    final shiftLabel = _engine.getDisplayDayLabel(record.date);
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      child: Column(
-        key: ValueKey(
-          '${statusResult.statusType.name}_${widget.todayRecord.entryTime}_${widget.todayRecord.exitTime}',
-        ),
+    final progress = _todayProgress(settings, record);
+    final workedToday = _workedDurationToday(settings, record);
+    final expectedDuration = _engine.calculateExpectedDuration(record.date);
+    final progressPredictedExit = _predictedExit(settings, record);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: statusColor.withValues(alpha: 0.28),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: Container(
+            key: ValueKey(
+              '${statusResult.statusType.name}_${record.entryTime}_${record.exitTime}',
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Icon(
-                      _statusIcon(statusResult.statusType),
-                      color: statusColor,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      statusResult.message,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: statusColor,
-                        fontSize: 16,
-                        height: 1.24,
-                      ),
-                    ),
-                  ),
-                ],
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: statusColor.withValues(alpha: 0.28),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 8,
-                children: [
-                  _buildMetaChip(
-                    theme: theme,
-                    icon: Icons.badge_outlined,
-                    label: shiftLabel,
-                  ),
-                  if (shift != null)
-                    _buildMetaChip(
-                      theme: theme,
-                      icon: Icons.schedule_rounded,
-                      label:
-                          '${_formatHour(shift.startHour, shift.startMinute)} → ${_formatHour(shift.endHour, shift.endMinute)}',
-                    ),
-                  if (predictedExit != null)
-                    _buildMetaChip(
-                      theme: theme,
-                      icon: Icons.flag_circle_rounded,
-                      label: 'Saída prevista: ${_timeFormatter.format(predictedExit)}',
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Insights',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...widget.insights.take(3).map((insight) {
-                  final color = _insightColor(theme, insight.severity);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          _insightIcon(insight.severity),
-                          size: 16,
-                          color: color,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            insight.message,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Icon(
+                        _statusIcon(statusResult.statusType),
+                        color: statusColor,
+                        size: 18,
+                      ),
                     ),
-                  );
-                }),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        statusResult.message,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: statusColor,
+                          fontSize: 16,
+                          height: 1.24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    _buildMetaChip(
+                      theme: theme,
+                      icon: Icons.badge_outlined,
+                      label: shiftLabel,
+                    ),
+                    if (shift != null)
+                      _buildMetaChip(
+                        theme: theme,
+                        icon: Icons.schedule_rounded,
+                        label:
+                            '${_formatHour(shift.startHour, shift.startMinute)} → ${_formatHour(shift.endHour, shift.endMinute)}',
+                      ),
+                    if (predictedExit != null)
+                      _buildMetaChip(
+                        theme: theme,
+                        icon: Icons.flag_circle_rounded,
+                        label: 'Saída prevista: ${_timeFormatter.format(predictedExit)}',
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -225,10 +255,10 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (predictedExit != null) ...[
+                if (progressPredictedExit != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Previsão de saída: ${_timeFormatter.format(predictedExit)}',
+                    'Previsão de saída: ${_timeFormatter.format(progressPredictedExit)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -239,40 +269,88 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Resumo semanal',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Saldo: ${_formatSignedDuration(widget.weekBalance)}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Dias trabalhados: ${widget.weekWorkedDays} • Horas: ${_formatDuration(widget.weekWorkedHours)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+      ],
+    );
+  }
+
+  Duration _workedDurationToday(AppSettings settings, TimeRecord record) {
+    if (record.entryTime == null) {
+      return Duration.zero;
+    }
+    if (record.exitTime != null) {
+      return record.totalWorkedHours;
+    }
+    final gross = _now.difference(record.entryTime!);
+    if (gross <= Duration.zero) {
+      return Duration.zero;
+    }
+    if (gross <= settings.lunchBreakDuration) {
+      return gross;
+    }
+    return gross - settings.lunchBreakDuration;
+  }
+
+  double _todayProgress(AppSettings settings, TimeRecord record) {
+    if (!_engine.isWorkingDay(record.date)) {
+      return 0;
+    }
+    final worked = _workedDurationToday(settings, record).inMinutes;
+    final goal = _engine.calculateExpectedDuration(record.date).inMinutes;
+    if (goal <= 0) {
+      return 0;
+    }
+    final ratio = worked / goal;
+    return ratio.clamp(0, 1).toDouble();
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalMinutes = duration.inMinutes.abs();
+    final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+    final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
+
+  DateTime? _predictedExit(AppSettings settings, TimeRecord record) {
+    if (record.entryTime == null || record.exitTime != null) {
+      return null;
+    }
+    if (!_engine.isWorkingDay(record.date)) {
+      return null;
+    }
+    return _engine.calculateExpectedExit(record.date, record.entryTime!);
+  }
+
+  Widget _buildMetaChip({
+    required ThemeData theme,
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
       ),
     );
   }
@@ -311,97 +389,65 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
     }
   }
 
-  Widget _buildMetaChip({
-    required ThemeData theme,
-    required IconData icon,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Duration _workedDurationToday(AppSettings settings) {
-    final record = widget.todayRecord;
-    if (record.entryTime == null) {
-      return Duration.zero;
-    }
-    if (record.exitTime != null) {
-      return record.totalWorkedHours;
-    }
-    final gross = _now.difference(record.entryTime!);
-    if (gross <= Duration.zero) {
-      return Duration.zero;
-    }
-    if (gross <= settings.lunchBreakDuration) {
-      return gross;
-    }
-    return gross - settings.lunchBreakDuration;
-  }
-
-  double _todayProgress(AppSettings settings) {
-    final record = widget.todayRecord;
-    final engine = WorkScheduleEngine(settings.workDayRule);
-    if (!engine.isWorkingDay(record.date)) {
-      return 0;
-    }
-    final worked = _workedDurationToday(settings).inMinutes;
-    final goal = engine.calculateExpectedDuration(record.date).inMinutes;
-    if (goal <= 0) {
-      return 0;
-    }
-    final ratio = worked / goal;
-    return ratio.clamp(0, 1).toDouble();
-  }
-
-  DateTime? _predictedExit(AppSettings settings) {
-    final record = widget.todayRecord;
-    if (record.entryTime == null || record.exitTime != null) {
-      return null;
-    }
-    final engine = WorkScheduleEngine(settings.workDayRule);
-    if (!engine.isWorkingDay(record.date)) {
-      return null;
-    }
-    return engine.calculateExpectedExit(record.date, record.entryTime!);
-  }
-
-  String _formatDuration(Duration duration) {
-    final totalMinutes = duration.inMinutes.abs();
-    final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
-    final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
-    return '$hours:$minutes';
-  }
-
   String _formatHour(int hour, int minute) {
     final hh = hour.toString().padLeft(2, '0');
     final mm = minute.toString().padLeft(2, '0');
     return '$hh:$mm';
+  }
+}
+
+class _InsightsCard extends StatelessWidget {
+  const _InsightsCard({required this.insights});
+
+  final List<InsightItem> insights;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Insights',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...insights.take(3).map((insight) {
+              final color = _insightColor(theme, insight.severity);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _insightIcon(insight.severity),
+                      size: 16,
+                      color: color,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        insight.message,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
   }
 
   IconData _insightIcon(InsightSeverity severity) {
@@ -424,6 +470,62 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
       case InsightSeverity.success:
         return const Color(0xFF56F09B);
     }
+  }
+}
+
+class _WeeklySummaryCard extends StatelessWidget {
+  const _WeeklySummaryCard({
+    required this.weekBalance,
+    required this.weekWorkedDays,
+    required this.weekWorkedHours,
+  });
+
+  final Duration weekBalance;
+  final int weekWorkedDays;
+  final Duration weekWorkedHours;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Resumo semanal',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Saldo: ${_formatSignedDuration(weekBalance)}',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Dias trabalhados: $weekWorkedDays • Horas: ${_formatDuration(weekWorkedHours)}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalMinutes = duration.inMinutes.abs();
+    final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+    final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
   }
 
   String _formatSignedDuration(Duration duration) {

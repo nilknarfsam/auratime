@@ -13,6 +13,14 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
   final ValueNotifier<int> _historyRefreshTrigger = ValueNotifier<int>(0);
+  late final List<Widget?> _cachedScreens;
+
+  @override
+  void initState() {
+    super.initState();
+    _cachedScreens = List<Widget?>.filled(3, null);
+    _cachedScreens[0] = _buildScreen(0);
+  }
 
   @override
   void dispose() {
@@ -28,15 +36,9 @@ class _MainNavigationState extends State<MainNavigation> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          DashboardScreen(
-            onHistoryRefreshRequested: _requestHistoryRefresh,
-          ),
-          HistoryScreen(
-            refreshListenable: _historyRefreshTrigger,
-          ),
-          SettingsScreen(
-            onSettingsSaved: _onSettingsSaved,
-          ),
+          _cachedScreens[0] ?? const SizedBox.shrink(),
+          _cachedScreens[1] ?? const SizedBox.shrink(),
+          _cachedScreens[2] ?? const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -62,6 +64,7 @@ class _MainNavigationState extends State<MainNavigation> {
         onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
+            _cachedScreens[index] ??= _buildScreen(index);
           });
         },
         destinations: const [
@@ -92,5 +95,24 @@ class _MainNavigationState extends State<MainNavigation> {
   void _onSettingsSaved() {
     _requestHistoryRefresh();
     setState(() {});
+  }
+
+  Widget _buildScreen(int index) {
+    switch (index) {
+      case 0:
+        return DashboardScreen(
+          onHistoryRefreshRequested: _requestHistoryRefresh,
+        );
+      case 1:
+        return HistoryScreen(
+          refreshListenable: _historyRefreshTrigger,
+        );
+      case 2:
+        return SettingsScreen(
+          onSettingsSaved: _onSettingsSaved,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

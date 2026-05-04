@@ -26,6 +26,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final DateFormat _shortDateFormatter = DateFormat('dd/MM', 'pt_BR');
   final DateFormat _timeFormatter = DateFormat('HH:mm', 'pt_BR');
   List<TimeRecord> _allRecords = const [];
+  List<TimeRecord> _visibleRecords = const [];
+  List<_HistoryRowViewModel> _rowViewModels = const [];
+  Duration _periodTotalWorked = Duration.zero;
+  Duration _periodTotalBalance = Duration.zero;
+  int _positiveDayCount = 0;
+  int _negativeDayCount = 0;
+  late WorkScheduleEngine _scheduleEngine;
   _HistoryFilter _selectedFilter = _HistoryFilter.currentMonth;
   DateTimeRange? _customRange;
   bool _isLoading = true;
@@ -34,8 +41,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
+    _scheduleEngine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
+    AppSettingsService.settingsListenable.addListener(_onSettingsChanged);
     _loadHistory();
     widget.refreshListenable.addListener(_onExternalRefreshRequested);
+  }
+
+  void _onSettingsChanged() {
+    _scheduleEngine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
+    if (mounted) {
+      setState(_recomputeDisplayData);
+    }
   }
 
   @override
@@ -49,8 +65,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   void dispose() {
+    AppSettingsService.settingsListenable.removeListener(_onSettingsChanged);
     widget.refreshListenable.removeListener(_onExternalRefreshRequested);
     super.dispose();
+  }
+
+  void _recomputeDisplayData() {
+    final range = _selectedDateRange;
+    final filtered = _allRecords
+        .where((record) => _isWithinRange(record.date, range))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    _visibleRecords = filtered;
+
+    var totalWorked = Duration.zero;
+    var totalBalance = Duration.zero;
+    var positiveDays = 0;
+    var negativeDays = 0;
+    for (final record in filtered) {
+      totalWorked += record.totalWorkedHours;
+      totalBalance += record.balance;
+      if (record.balance.inMinutes > 0) {
+        positiveDays++;
+      } else if (record.balance.inMinutes < 0) {
+        negativeDays++;
+      }
+    }
+    _periodTotalWorked = totalWorked;
+    _periodTotalBalance = totalBalance;
+    _positiveDayCount = positiveDays;
+    _negativeDayCount = negativeDays;
+    _rowViewModels = filtered
+        .map(
+          (r) => _HistoryRowViewModel.from(
+            r,
+            _scheduleEngine,
+            _dateFormatter,
+            _timeFormatter,
+          ),
+        )
+        .toList();
   }
 
   @override
@@ -104,162 +158,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         backgroundColor: theme.colorScheme.surfaceContainerHighest,
         foregroundColor: theme.colorScheme.onSurface,
-      ),
-    );
-  }
-
-  Widget _buildHistoryRecordCard(ThemeData theme, TimeRecord record) {
-    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
-    final workDayType = engine.getDayType(record.date);
-    final dailyBalance = record.balance;
-    final isPositive = dailyBalance.inMinutes >= 0;
-    final balanceColor = isPositive
-        ? const Color(0xFF56F09B)
-        : const Color(0xFFFF8A80);
-    final statusText = engine.getDisplayDayLabel(record.date);
-    final statusColor = _workDayTypeColor(workDayType);
-    final statusBackground = statusColor.withValues(alpha: 0.18);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusBackground,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _capitalize(_dateFormatter.format(record.date)),
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      _formatSignedDuration(dailyBalance),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: balanceColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _formatDuration(record.totalWorkedHours),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildPunchInfo(
-                    theme: theme,
-                    icon: Icons.login_rounded,
-                    label: 'Entrada',
-                    value: _formatPunch(record.entryTime),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildPunchInfo(
-                    theme: theme,
-                    icon: Icons.logout_rounded,
-                    label: 'Saída',
-                    value: _formatPunch(record.exitTime),
-                  ),
-                ),
-              ],
-            ),
-            if (record.hasNote) ...[
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.comment_rounded,
-                    size: 15,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      record.note!.trim(),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPunchInfo({
-    required ThemeData theme,
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.35,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: theme.colorScheme.secondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: theme.textTheme.labelSmall),
-                Text(
-                  value,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -319,6 +217,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               }
               setState(() {
                 _customRange = picked;
+                _recomputeDisplayData();
               });
             },
             child: Container(
@@ -361,15 +260,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
             setState(() {
               _selectedFilter = _HistoryFilter.customRange;
               _customRange = picked;
+              _recomputeDisplayData();
             });
             return;
           }
           setState(() {
             _selectedFilter = value;
+            _recomputeDisplayData();
           });
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
           margin: const EdgeInsets.symmetric(horizontal: 1),
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -407,11 +308,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildSummaryCard(ThemeData theme) {
-    final records = _filteredRecords;
-    final totalWorked = _totalWorkedPeriod;
-    final balance = _totalBalancePeriod;
-    final positiveDays = records.where((r) => r.balance.inMinutes > 0).length;
-    final negativeDays = records.where((r) => r.balance.inMinutes < 0).length;
+    final records = _visibleRecords;
+    final totalWorked = _periodTotalWorked;
+    final balance = _periodTotalBalance;
+    final positiveDays = _positiveDayCount;
+    final negativeDays = _negativeDayCount;
 
     return Card(
       child: Padding(
@@ -506,6 +407,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       }
       setState(() {
         _allRecords = records;
+        _recomputeDisplayData();
       });
     } catch (_) {
       if (mounted) {
@@ -524,7 +426,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _generatePdfReport() async {
-    final records = _filteredRecords;
+    final records = _visibleRecords;
     if (records.isEmpty) {
       SnackBarHelper.showWarning(
         context,
@@ -540,7 +442,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     try {
       await PdfReportService.generateAndPrintReport(
         records,
-        _totalBalancePeriod,
+        _periodTotalBalance,
         _currentPeriodLabel(),
         _currentPeriodFileLabel(),
         AppSettingsService.current.userName,
@@ -581,11 +483,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildRefreshableHistoryList(ThemeData theme) {
-    final records = _filteredRecords;
+    final rows = _rowViewModels;
 
     return RefreshIndicator(
       onRefresh: _refreshHistory,
-      child: records.isEmpty
+      child: rows.isEmpty
           ? ListView(
               padding: const EdgeInsets.only(bottom: 100),
               physics: const AlwaysScrollableScrollPhysics(),
@@ -604,13 +506,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             )
-          : ListView.separated(
+          : ListView.builder(
               padding: const EdgeInsets.only(bottom: 100),
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: records.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              prototypeItem: _HistoryRecordTile.prototype(theme),
+              itemCount: rows.length * 2 - 1,
               itemBuilder: (context, index) {
-                return _buildHistoryRecordCard(theme, records[index]);
+                if (index.isOdd) {
+                  return const SizedBox(height: 12);
+                }
+                final row = rows[index ~/ 2];
+                return RepaintBoundary(
+                  child: _HistoryRecordTile(theme: theme, row: row),
+                );
               },
             ),
     );
@@ -618,30 +526,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _onExternalRefreshRequested() {
     unawaited(_loadHistoryInternal(showLoading: false));
-  }
-
-  List<TimeRecord> get _filteredRecords {
-    final range = _selectedDateRange;
-    return _allRecords
-        .where((record) => _isWithinRange(record.date, range))
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  Duration get _totalWorkedPeriod {
-    Duration total = Duration.zero;
-    for (final record in _filteredRecords) {
-      total += record.totalWorkedHours;
-    }
-    return total;
-  }
-
-  Duration get _totalBalancePeriod {
-    Duration total = Duration.zero;
-    for (final record in _filteredRecords) {
-      total += record.balance;
-    }
-    return total;
   }
 
   DateTimeRange get _selectedDateRange {
@@ -734,26 +618,293 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  String _formatPunch(DateTime? time) {
-    if (time == null) {
-      return '--:--';
+}
+
+class _HistoryRowViewModel {
+  const _HistoryRowViewModel({
+    required this.record,
+    required this.dateTitle,
+    required this.statusText,
+    required this.balanceStr,
+    required this.balanceColor,
+    required this.workedStr,
+    required this.entryStr,
+    required this.exitStr,
+    required this.statusColor,
+    required this.statusBackground,
+    this.note,
+  });
+
+  final TimeRecord record;
+  final String dateTitle;
+  final String statusText;
+  final String balanceStr;
+  final Color balanceColor;
+  final String workedStr;
+  final String entryStr;
+  final String exitStr;
+  final Color statusColor;
+  final Color statusBackground;
+  final String? note;
+
+  factory _HistoryRowViewModel.from(
+    TimeRecord record,
+    WorkScheduleEngine engine,
+    DateFormat dateFormatter,
+    DateFormat timeFormatter,
+  ) {
+    final workDayType = engine.getDayType(record.date);
+    final dailyBalance = record.balance;
+    final isPositive = dailyBalance.inMinutes >= 0;
+    final balanceColor = isPositive
+        ? const Color(0xFF56F09B)
+        : const Color(0xFFFF8A80);
+    final statusText = engine.getDisplayDayLabel(record.date);
+    final statusColor = _historyWorkDayTypeColor(workDayType);
+    final statusBackground = statusColor.withValues(alpha: 0.18);
+
+    String capitalize(String text) {
+      if (text.isEmpty) {
+        return text;
+      }
+      return '${text[0].toUpperCase()}${text.substring(1)}';
     }
-    return _timeFormatter.format(time);
+
+    String formatDuration(Duration duration) {
+      final totalMinutes = duration.inMinutes.abs();
+      final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+      final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
+      return '$hours:$minutes';
+    }
+
+    String formatSignedDuration(Duration duration) {
+      final sign = duration.inMinutes >= 0 ? '+' : '-';
+      return '$sign ${formatDuration(duration)}';
+    }
+
+    String formatPunch(DateTime? time) {
+      if (time == null) {
+        return '--:--';
+      }
+      return timeFormatter.format(time);
+    }
+
+    return _HistoryRowViewModel(
+      record: record,
+      dateTitle: capitalize(dateFormatter.format(record.date)),
+      statusText: statusText,
+      balanceStr: formatSignedDuration(dailyBalance),
+      balanceColor: balanceColor,
+      workedStr: formatDuration(record.totalWorkedHours),
+      entryStr: formatPunch(record.entryTime),
+      exitStr: formatPunch(record.exitTime),
+      statusColor: statusColor,
+      statusBackground: statusBackground,
+      note: record.hasNote ? record.note!.trim() : null,
+    );
+  }
+}
+
+Color _historyWorkDayTypeColor(WorkDayType dayType) {
+  switch (dayType) {
+    case WorkDayType.regular:
+      return const Color(0xFF8BE9FD);
+    case WorkDayType.saturdayCompensation:
+      return const Color(0xFFFFC857);
+    case WorkDayType.holiday:
+      return const Color(0xFF72D7FF);
+    case WorkDayType.holidayWorkedSwap:
+      return const Color(0xFFA29BFE);
+    case WorkDayType.compensatoryDayOff:
+      return const Color(0xFFFFB199);
+  }
+}
+
+class _HistoryRecordTile extends StatelessWidget {
+  const _HistoryRecordTile({
+    required this.theme,
+    required this.row,
+  });
+
+  final ThemeData theme;
+  final _HistoryRowViewModel row;
+
+  /// Approximate row height for scroll metrics (list without note).
+  static Widget prototype(ThemeData theme) {
+    return SizedBox(
+      height: 192,
+      child: _HistoryRecordTile(
+        theme: theme,
+        row: _HistoryRowViewModel(
+          record: TimeRecord.forDate(DateTime(2000, 1, 1)),
+          dateTitle: '1 de janeiro',
+          statusText: 'Normal',
+          balanceStr: '+ 00:00',
+          balanceColor: const Color(0xFF56F09B),
+          workedStr: '00:00',
+          entryStr: '--:--',
+          exitStr: '--:--',
+          statusColor: _historyWorkDayTypeColor(WorkDayType.regular),
+          statusBackground: _historyWorkDayTypeColor(WorkDayType.regular).withValues(alpha: 0.18),
+        ),
+      ),
+    );
   }
 
-  Color _workDayTypeColor(WorkDayType dayType) {
-    switch (dayType) {
-      case WorkDayType.regular:
-        return const Color(0xFF8BE9FD);
-      case WorkDayType.saturdayCompensation:
-        return const Color(0xFFFFC857);
-      case WorkDayType.holiday:
-        return const Color(0xFF72D7FF);
-      case WorkDayType.holidayWorkedSwap:
-        return const Color(0xFFA29BFE);
-      case WorkDayType.compensatoryDayOff:
-        return const Color(0xFFFFB199);
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: row.statusBackground,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    row.statusText,
+                    style: TextStyle(
+                      color: row.statusColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    row.dateTitle,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      row.balanceStr,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: row.balanceColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      row.workedStr,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _HistoryPunchInfo(
+                    theme: theme,
+                    icon: Icons.login_rounded,
+                    label: 'Entrada',
+                    value: row.entryStr,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _HistoryPunchInfo(
+                    theme: theme,
+                    icon: Icons.logout_rounded,
+                    label: 'Saída',
+                    value: row.exitStr,
+                  ),
+                ),
+              ],
+            ),
+            if (row.note != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.comment_rounded,
+                    size: 15,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      row.note!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryPunchInfo extends StatelessWidget {
+  const _HistoryPunchInfo({
+    required this.theme,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final ThemeData theme;
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.35,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.secondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: theme.textTheme.labelSmall),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

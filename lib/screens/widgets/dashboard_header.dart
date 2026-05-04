@@ -12,31 +12,28 @@ class DashboardHeader extends StatefulWidget {
 }
 
 class _DashboardHeaderState extends State<DashboardHeader> {
-  final DateFormat _longDateFormatter = DateFormat(
+  static final DateFormat _longDateFormatter = DateFormat(
     "EEEE, d 'de' MMMM",
     'pt_BR',
   );
-  final DateFormat _clockFormatter = DateFormat('HH:mm:ss');
-  late final Timer _clockTimer;
-  late DateTime _now;
+  static final DateFormat _clockFormatter = DateFormat('HH:mm:ss');
+
+  late final ValueNotifier<DateTime> _nowNotifier;
+  Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
-    _now = DateTime.now();
+    _nowNotifier = ValueNotifier<DateTime>(DateTime.now());
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _now = DateTime.now();
-      });
+      _nowNotifier.value = DateTime.now();
     });
   }
 
   @override
   void dispose() {
-    _clockTimer.cancel();
+    _clockTimer?.cancel();
+    _nowNotifier.dispose();
     super.dispose();
   }
 
@@ -44,7 +41,6 @@ class _DashboardHeaderState extends State<DashboardHeader> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settings = AppSettingsService.current;
-    final greeting = _greeting(_now, settings.userName);
 
     return Container(
       width: double.infinity,
@@ -56,30 +52,36 @@ class _DashboardHeaderState extends State<DashboardHeader> {
           color: theme.colorScheme.outline.withValues(alpha: 0.35),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            greeting,
-            style: theme.textTheme.headlineMedium,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _clockFormatter.format(_now),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: theme.colorScheme.secondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _longDateFormatter.format(_now),
-            style: theme.textTheme.bodyMedium,
-          ),
-        ],
+      child: ValueListenableBuilder<DateTime>(
+        valueListenable: _nowNotifier,
+        builder: (context, now, _) {
+          final greeting = _greeting(now, settings.userName);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                greeting,
+                style: theme.textTheme.headlineMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _clockFormatter.format(now),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: theme.colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _longDateFormatter.format(now),
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

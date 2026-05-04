@@ -13,11 +13,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pt_BR');
   Intl.defaultLocale = 'pt_BR';
-  await AppSettingsService.initialize();
-  await TimeRecordService.initialize();
-  await HomeWidget.registerInteractivityCallback(backgroundCallback);
-  await syncHomeWidgetStatus();
+  await Future.wait<void>([
+    AppSettingsService.initialize(),
+    TimeRecordService.initialize(),
+  ]);
   runApp(const AuraTimeApp());
+  HomeWidget.registerInteractivityCallback(backgroundCallback);
+  syncHomeWidgetStatus();
 }
 
 class AuraTimeApp extends StatelessWidget {

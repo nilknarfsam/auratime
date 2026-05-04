@@ -34,13 +34,19 @@ class _DashboardScreenState extends State<DashboardScreen>
   Duration _weekWorkedHours = Duration.zero;
   int _weekWorkedDays = 0;
   List<InsightItem> _insights = const [];
+  final ValueNotifier<int> _todayRevision = ValueNotifier<int>(0);
+  final ValueNotifier<int> _weekRevision = ValueNotifier<int>(0);
+  final ValueNotifier<bool> _loadingNotifier = ValueNotifier<bool>(false);
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
-  bool _isLoading = false;
+  late final DateFormat _hourFormatter;
+  late final Listenable _punchAreaListenable;
 
   @override
   void initState() {
     super.initState();
+    _hourFormatter = DateFormat('HH:mm');
+    _punchAreaListenable = Listenable.merge([_loadingNotifier, _todayRevision]);
     _loadTodayRecord();
     _pulseController = AnimationController(
       vsync: this,
@@ -53,6 +59,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    _todayRevision.dispose();
+    _weekRevision.dispose();
+    _loadingNotifier.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -61,9 +70,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settings = AppSettingsService.current;
-    final engine = WorkScheduleEngine(settings.workDayRule);
-    final dayType = engine.getDayType(_todayRecord.date);
-    final shift = engine.getShiftForDate(_todayRecord.date);
 
     return Scaffold(
       body: SafeArea(
@@ -80,77 +86,102 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const DashboardHeader(),
                       const SizedBox(height: 14),
                       DashboardInsightsPanel(
-                        todayRecord: _todayRecord,
+                        todayRevision: _todayRevision,
+                        weekRevision: _weekRevision,
+                        todayRecord: () => _todayRecord,
                         weekWorkedDays: _weekWorkedDays,
                         weekWorkedHours: _weekWorkedHours,
                         weekBalance: _weekBalance,
                         insights: _insights,
                       ),
                       const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: theme.colorScheme.outline.withValues(alpha: 0.18),
-                          ),
-                          color: theme.colorScheme.surface.withValues(alpha: 0.18),
-                        ),
-                        child: Center(
-                          child: _isLoading
-                              ? const CircularProgressIndicator()
-                              : PunchButton(
-                                  canPunch:
-                                      !_isLoading && _isWorkingDay(dayType) && !_isDayFinalized,
-                                  isDayFinalized: _isDayFinalized,
-                                  onPressed:
-                                      !_isLoading && _isWorkingDay(dayType) && !_isDayFinalized
-                                      ? _recordNow
-                                      : null,
-                                  pulseAnimation: _pulseAnimation,
+                      RepaintBoundary(
+                        child: AnimatedBuilder(
+                          animation: _punchAreaListenable,
+                          builder: (context, _) {
+                            final isLoading = _loadingNotifier.value;
+                            final engine = WorkScheduleEngine(settings.workDayRule);
+                            final dayType = engine.getDayType(_todayRecord.date);
+                            final shift = engine.getShiftForDate(_todayRecord.date);
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: theme.colorScheme.outline.withValues(alpha: 0.18),
+                                    ),
+                                    color: theme.colorScheme.surface.withValues(alpha: 0.18),
+                                  ),
+                                  child: Center(
+                                    child: isLoading
+                                        ? const CircularProgressIndicator()
+                                        : PunchButton(
+                                            canPunch: !isLoading &&
+                                                _isWorkingDay(dayType) &&
+                                                !_isDayFinalized,
+                                            isDayFinalized: _isDayFinalized,
+                                            onPressed: !isLoading &&
+                                                    _isWorkingDay(dayType) &&
+                                                    !_isDayFinalized
+                                                ? _recordNow
+                                                : null,
+                                            pulseAnimation: _pulseAnimation,
+                                          ),
+                                  ),
                                 ),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      if (_isWorkingDay(dayType)) ...[
-                        TimeRecordCard(
-                          label: 'Entrada',
-                          value: _todayRecord.entryTime,
-                          expected: _formatExpectedTime(
-                            shift?.startHour ?? settings.defaultEntryHour,
-                            shift?.startMinute ?? settings.defaultEntryMinute,
-                          ),
-                          timeFormatter: _hourFormatter,
-                          onTap: _isLoading
-                              ? null
-                              : () =>
-                                    _editRecordTime(_RecordField.entry, _todayRecord.entryTime),
-                        ),
-                        const SizedBox(height: 12),
-                        TimeRecordCard(
-                          label: 'Saída',
-                          value: _todayRecord.exitTime,
-                          expected: _formatExpectedTime(
-                            shift?.endHour ?? settings.defaultExitHour,
-                            shift?.endMinute ?? settings.defaultExitMinute,
-                          ),
-                          timeFormatter: _hourFormatter,
-                          onTap: _isLoading
-                              ? null
-                              : () => _editRecordTime(_RecordField.exit, _todayRecord.exitTime),
-                        ),
-                        const SizedBox(height: 14),
-                        _buildNoteSection(theme),
-                      ] else
-                        _buildSpecialDayMessage(theme, dayType),
-                      const Spacer(),
-                      Align(
-                        child: TextButton(
-                          onPressed: _isLoading || !_isWorkingDay(dayType)
-                              ? null
-                              : _fillWithDefaultSchedule,
-                          child: const Text('Preencher com horários padrões'),
+                                const SizedBox(height: 28),
+                                if (_isWorkingDay(dayType)) ...[
+                                  TimeRecordCard(
+                                    label: 'Entrada',
+                                    value: _todayRecord.entryTime,
+                                    expected: _formatExpectedTime(
+                                      shift?.startHour ?? settings.defaultEntryHour,
+                                      shift?.startMinute ?? settings.defaultEntryMinute,
+                                    ),
+                                    timeFormatter: _hourFormatter,
+                                    onTap: isLoading
+                                        ? null
+                                        : () => _editRecordTime(
+                                              _RecordField.entry,
+                                              _todayRecord.entryTime,
+                                            ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TimeRecordCard(
+                                    label: 'Saída',
+                                    value: _todayRecord.exitTime,
+                                    expected: _formatExpectedTime(
+                                      shift?.endHour ?? settings.defaultExitHour,
+                                      shift?.endMinute ?? settings.defaultExitMinute,
+                                    ),
+                                    timeFormatter: _hourFormatter,
+                                    onTap: isLoading
+                                        ? null
+                                        : () => _editRecordTime(
+                                              _RecordField.exit,
+                                              _todayRecord.exitTime,
+                                            ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _buildNoteSection(theme, isLoading),
+                                ] else
+                                  _buildSpecialDayMessage(theme, dayType),
+                                const Spacer(),
+                                Align(
+                                  child: TextButton(
+                                    onPressed: isLoading || !_isWorkingDay(dayType)
+                                        ? null
+                                        : _fillWithDefaultSchedule,
+                                    child: const Text('Preencher com horários padrões'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -193,45 +224,42 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildNoteSection(ThemeData theme) {
+  Widget _buildNoteSection(ThemeData theme, bool isLoading) {
     return TextButton.icon(
-      onPressed: _isLoading ? null : _showNoteDialog,
+      onPressed: isLoading ? null : _showNoteDialog,
       icon: const Icon(Icons.edit_note_rounded),
       label: Text(_todayRecord.hasNote ? 'Editar observação' : 'Adicionar observação'),
     );
   }
 
   Future<void> _loadTodayRecord() async {
-    setState(() => _isLoading = true);
+    _loadingNotifier.value = true;
     try {
       final record = await _timeRecordService.getTodayRecord();
-      final summary = await _loadWeekSummary();
       if (!mounted) {
         return;
       }
-      setState(() {
-        _todayRecord = record;
-        _weekBalance = summary.balance;
-        _weekWorkedHours = summary.workedHours;
-        _weekWorkedDays = summary.workedDays;
-        _insights = summary.insights;
-      });
+      _todayRecord = record;
+      _loadingNotifier.value = false;
+      _todayRevision.value++;
+      unawaited(_refreshWeekSummary());
       unawaited(syncHomeWidgetStatus());
-    } finally {
+    } catch (_) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        _loadingNotifier.value = false;
       }
     }
   }
 
   Future<void> _recordNow() async {
-    setState(() => _isLoading = true);
+    _loadingNotifier.value = true;
     try {
       final result = await _timeRecordService.recordCurrentTime();
       if (!mounted) {
         return;
       }
-      setState(() => _todayRecord = result.record);
+      _todayRecord = result.record;
+      _todayRevision.value++;
       await _refreshWeekSummary();
       if (!mounted) {
         return;
@@ -245,19 +273,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        _loadingNotifier.value = false;
       }
     }
   }
 
   Future<void> _fillWithDefaultSchedule() async {
-    setState(() => _isLoading = true);
+    _loadingNotifier.value = true;
     try {
       final filledRecord = await _timeRecordService.fillWithDefaultSchedule(date: DateTime.now());
       if (!mounted) {
         return;
       }
-      setState(() => _todayRecord = filledRecord);
+      _todayRecord = filledRecord;
+      _todayRevision.value++;
       await _refreshWeekSummary();
       if (!mounted) {
         return;
@@ -267,7 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       SnackBarHelper.showSuccess(context, 'Horários padrões aplicados!');
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        _loadingNotifier.value = false;
       }
     }
   }
@@ -297,7 +326,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
     await _timeRecordService.saveRecord(_todayRecord);
     if (mounted) {
-      setState(() {});
+      _todayRevision.value++;
+      unawaited(_refreshWeekSummary());
       widget.onHistoryRefreshRequested();
     }
   }
@@ -328,7 +358,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     _todayRecord.note = result.isEmpty ? null : result;
     await _timeRecordService.saveRecord(_todayRecord);
     if (mounted) {
-      setState(() {});
+      _todayRevision.value++;
+      unawaited(_refreshWeekSummary());
       widget.onHistoryRefreshRequested();
     }
   }
@@ -337,21 +368,22 @@ class _DashboardScreenState extends State<DashboardScreen>
     return _hourFormatter.format(DateTime(2000, 1, 1, hour, minute));
   }
 
-  DateFormat get _hourFormatter => DateFormat('HH:mm');
-
   bool get _isDayFinalized => _todayRecord.entryTime != null && _todayRecord.exitTime != null;
 
   Future<void> _refreshWeekSummary() async {
-    final summary = await _loadWeekSummary();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
+    try {
+      final summary = await _loadWeekSummary();
+      if (!mounted) {
+        return;
+      }
       _weekBalance = summary.balance;
       _weekWorkedHours = summary.workedHours;
       _weekWorkedDays = summary.workedDays;
       _insights = summary.insights;
-    });
+      _weekRevision.value++;
+    } catch (_) {
+      // Keep the current values if summary refresh fails.
+    }
   }
 
   Future<_WeeklySummary> _loadWeekSummary() async {

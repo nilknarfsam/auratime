@@ -76,12 +76,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final subtleTextStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
     );
+    final shiftMenuItemWidth = (MediaQuery.sizeOf(context).width - 40).clamp(260.0, 340.0);
 
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          children: [
+        child: RepaintBoundary(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
             Text('Configurações', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 8),
             Text(
@@ -141,7 +143,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       trailing: DropdownButton<ShiftType>(
                         value: _defaultShiftType,
-                        isDense: true,
+                        isDense: false,
+                        itemHeight: 64,
                         onChanged: _isSaving
                             ? null
                             : (value) {
@@ -162,6 +165,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: false,
                                   ),
                                 ),
                               )
@@ -171,29 +177,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           return DropdownMenuItem(
                             value: item,
                             child: SizedBox(
-                              width: 210,
+                              height: 64,
+                              width: shiftMenuItemWidth,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      _shiftTitle(item),
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                    Icon(
+                                      Icons.schedule_rounded,
+                                      size: 20,
+                                      color: theme.colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.85),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _shiftRange(item),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false,
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _shiftTitle(item),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: false,
+                                            style: theme.textTheme.bodyMedium?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            _shiftRange(item),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: false,
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                              color: theme.colorScheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -423,7 +446,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
