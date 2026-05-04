@@ -149,14 +149,17 @@ class _DashboardInsightsPanelState extends State<DashboardInsightsPanel> {
   }
 
   String _statusText(WorkDayType dayType) {
+    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
     if (dayType == WorkDayType.holiday) {
       return 'Feriado';
     }
     if (dayType == WorkDayType.compensatoryDayOff) {
-      return 'Folga compensatória';
+      return engine.hasExplicitRuleForDate(widget.todayRecord.date)
+          ? 'Folga compensatória'
+          : 'Folga';
     }
     if (dayType == WorkDayType.holidayWorkedSwap) {
-      return 'Troca de feriado';
+      return 'Troca';
     }
     if (dayType == WorkDayType.saturdayCompensation) {
       return 'Sábado compensado';

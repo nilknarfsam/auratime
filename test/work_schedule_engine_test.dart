@@ -136,6 +136,32 @@ void main() {
     expect(engine.calculateExpectedDuration(sunday), Duration.zero);
   });
 
+  test('Saturday default off renders Folga', () {
+    final engine = WorkScheduleEngine(WorkDayRule.defaults());
+    expect(engine.getDisplayDayLabel(DateTime(2026, 5, 2)), 'Folga');
+  });
+
+  test('Sunday default off renders Folga', () {
+    final engine = WorkScheduleEngine(WorkDayRule.defaults());
+    expect(engine.getDisplayDayLabel(DateTime(2026, 5, 3)), 'Folga');
+  });
+
+  test('Explicit compensatory day off renders Folga compensatória', () {
+    final targetDate = DateTime(2026, 5, 9);
+    final engine = WorkScheduleEngine(
+      WorkDayRule.defaults().copyWith(
+        companyCalendarRules: [
+          CompanyCalendarRule(
+            date: targetDate,
+            dayType: WorkDayType.compensatoryDayOff,
+            note: 'Folga por compensacao',
+          ),
+        ],
+      ),
+    );
+    expect(engine.getDisplayDayLabel(targetDate), 'Folga compensatória');
+  });
+
   test('Backward compatibility defaults', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await AppSettingsService.initialize();

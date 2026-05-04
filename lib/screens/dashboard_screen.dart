@@ -157,9 +157,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildSpecialDayMessage(ThemeData theme, WorkDayType dayType) {
+    final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
     final message = switch (dayType) {
       WorkDayType.holiday => 'Aproveite seu feriado!',
-      WorkDayType.compensatoryDayOff => 'Aproveite sua folga compensatória!',
+      WorkDayType.compensatoryDayOff => engine.hasExplicitRuleForDate(_todayRecord.date)
+          ? 'Aproveite sua folga compensatória!'
+          : 'Aproveite sua folga!',
       _ => 'Dia sem jornada prevista.',
     };
     return Container(

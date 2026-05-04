@@ -112,7 +112,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final balanceColor = isPositive
         ? const Color(0xFF56F09B)
         : const Color(0xFFFF8A80);
-    final statusText = _workDayTypeLabel(workDayType);
+    final statusText = engine.getDisplayDayLabel(record.date);
     final statusColor = _workDayTypeColor(workDayType);
     final statusBackground = statusColor.withValues(alpha: 0.18);
 
@@ -691,21 +691,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return '--:--';
     }
     return _timeFormatter.format(time);
-  }
-
-  String _workDayTypeLabel(WorkDayType dayType) {
-    switch (dayType) {
-      case WorkDayType.regular:
-        return 'Normal';
-      case WorkDayType.saturdayCompensation:
-        return 'Sábado compensado';
-      case WorkDayType.holiday:
-        return 'Feriado';
-      case WorkDayType.holidayWorkedSwap:
-        return 'Troca';
-      case WorkDayType.compensatoryDayOff:
-        return 'Folga compensatória';
-    }
   }
 
   Color _workDayTypeColor(WorkDayType dayType) {

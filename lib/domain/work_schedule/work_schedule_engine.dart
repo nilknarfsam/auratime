@@ -20,6 +20,28 @@ class WorkScheduleEngine {
     return WorkDayType.regular;
   }
 
+  bool hasExplicitRuleForDate(DateTime date) {
+    return _companyRuleFor(_normalizeDate(date)) != null;
+  }
+
+  String getDisplayDayLabel(DateTime date) {
+    final normalized = _normalizeDate(date);
+    final dayType = getDayType(normalized);
+    final hasExplicitRule = hasExplicitRuleForDate(normalized);
+    switch (dayType) {
+      case WorkDayType.regular:
+        return 'Normal';
+      case WorkDayType.saturdayCompensation:
+        return 'Sábado compensado';
+      case WorkDayType.holiday:
+        return 'Feriado';
+      case WorkDayType.holidayWorkedSwap:
+        return 'Troca';
+      case WorkDayType.compensatoryDayOff:
+        return hasExplicitRule ? 'Folga compensatória' : 'Folga';
+    }
+  }
+
   WorkShift? getShiftForDate(DateTime date) {
     final dayType = getDayType(date);
     switch (dayType) {
