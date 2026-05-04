@@ -124,7 +124,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text('Histórico', style: theme.textTheme.headlineMedium),
                           const Expanded(
                             child: Center(child: CircularProgressIndicator()),
@@ -134,13 +134,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text('Histórico', style: theme.textTheme.headlineMedium),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           _buildFilterSection(theme),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           _buildSummaryCard(theme),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           Expanded(child: _buildRefreshableHistoryList(theme)),
                         ],
                       ),
@@ -244,7 +244,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ),
         if (_selectedFilter == _HistoryFilter.customRange) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () async {
@@ -353,12 +353,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Resumo do período', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -377,7 +377,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
@@ -526,14 +526,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
       onRefresh: _refreshHistory,
       child: rows.isEmpty
           ? ListView(
-              padding: const EdgeInsets.only(bottom: 112),
+              padding: const EdgeInsets.only(bottom: 104),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
-                      vertical: 20,
+                      vertical: 16,
                     ),
                     child: Text(
                       'Nenhum registro salvo ainda.',
@@ -543,16 +543,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             )
-          : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 112),
+          : ListView.separated(
+              padding: const EdgeInsets.only(bottom: 104),
               physics: const AlwaysScrollableScrollPhysics(),
-              prototypeItem: _HistoryRecordTile.prototype(theme),
-              itemCount: rows.length * 2 - 1,
+              itemCount: rows.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                if (index.isOdd) {
-                  return const SizedBox(height: 12);
-                }
-                final row = rows[index ~/ 2];
+                final row = rows[index];
                 return RepaintBoundary(
                   child: _HistoryRecordTile(theme: theme, row: row),
                 );
@@ -614,12 +611,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ).subtract(const Duration(days: 6)),
           end: DateTime(now.year, now.month, now.day),
         );
+    final theme = Theme.of(context);
     return showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(now.year + 5),
       initialDateRange: initial,
       locale: const Locale('pt', 'BR'),
+      builder: (context, child) {
+        return Theme(
+          data: theme.copyWith(
+            dialogTheme: theme.dialogTheme.copyWith(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+            ),
+            datePickerTheme: _historyDatePickerTheme(theme),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 
@@ -655,6 +664,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+}
+
+/// Dark, AuraTime-aligned contrast for range selection (readable endpoints + soft span).
+DatePickerThemeData _historyDatePickerTheme(ThemeData theme) {
+  final cs = theme.colorScheme;
+  return DatePickerThemeData(
+    backgroundColor: cs.surface,
+    elevation: 0,
+    shadowColor: Colors.transparent,
+    headerBackgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+    headerForegroundColor: cs.onSurface,
+    headerHelpStyle: theme.textTheme.titleSmall?.copyWith(
+      color: cs.onSurface,
+      fontWeight: FontWeight.w600,
+    ),
+    weekdayStyle: theme.textTheme.bodySmall?.copyWith(
+      color: cs.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+    ),
+    dayStyle: theme.textTheme.bodyMedium?.copyWith(
+      color: cs.onSurface,
+      fontWeight: FontWeight.w600,
+    ),
+    dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return cs.onSurface.withValues(alpha: 0.38);
+      }
+      if (states.contains(WidgetState.selected)) {
+        return cs.onPrimary;
+      }
+      return cs.onSurface;
+    }),
+    dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return cs.primary;
+      }
+      return null;
+    }),
+    todayForegroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return cs.onPrimary;
+      }
+      return cs.secondary;
+    }),
+    todayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return cs.primary;
+      }
+      return cs.secondary.withValues(alpha: 0.14);
+    }),
+    todayBorder: BorderSide(
+      color: cs.secondary.withValues(alpha: 0.7),
+      width: 1,
+    ),
+    rangeSelectionBackgroundColor: cs.primary.withValues(alpha: 0.22),
+    rangeSelectionOverlayColor: WidgetStateProperty.all(
+      cs.primary.withValues(alpha: 0.10),
+    ),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+      side: BorderSide(color: cs.outline.withValues(alpha: 0.45)),
+    ),
+  );
 }
 
 class _HistoryRowViewModel {
@@ -766,35 +838,14 @@ class _HistoryRecordTile extends StatelessWidget {
   final ThemeData theme;
   final _HistoryRowViewModel row;
 
-  /// Approximate row height for scroll metrics (list without note).
-  static Widget prototype(ThemeData theme) {
-    return SizedBox(
-      height: 192,
-      child: _HistoryRecordTile(
-        theme: theme,
-        row: _HistoryRowViewModel(
-          record: TimeRecord.forDate(DateTime(2000, 1, 1)),
-          dateTitle: '1 de janeiro',
-          statusText: 'Normal',
-          balanceStr: '+ 00:00',
-          balanceColor: const Color(0xFF56F09B),
-          workedStr: '00:00',
-          entryStr: '--:--',
-          exitStr: '--:--',
-          statusColor: _historyWorkDayTypeColor(WorkDayType.regular),
-          statusBackground: _historyWorkDayTypeColor(WorkDayType.regular).withValues(alpha: 0.18),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -846,7 +897,7 @@ class _HistoryRecordTile extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -869,7 +920,7 @@ class _HistoryRecordTile extends StatelessWidget {
               ],
             ),
             if (row.note != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -913,7 +964,7 @@ class _HistoryPunchInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(
           alpha: 0.35,
