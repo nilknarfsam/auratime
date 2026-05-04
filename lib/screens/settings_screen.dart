@@ -14,7 +14,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const double _cardRadius = 20;
+  static const double _cardRadius = 16;
   static const EdgeInsets _cardPadding = EdgeInsets.all(14);
 
   late final TextEditingController _userNameController;

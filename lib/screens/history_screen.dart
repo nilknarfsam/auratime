@@ -100,6 +100,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
               )
             : const Icon(Icons.picture_as_pdf_rounded),
         label: const Text('Relatório PDF'),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        foregroundColor: theme.colorScheme.onSurface,
       ),
     );
   }

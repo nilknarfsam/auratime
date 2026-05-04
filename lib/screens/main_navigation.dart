@@ -41,9 +41,24 @@ class _MainNavigationState extends State<MainNavigation> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
+        height: 70,
+        elevation: 0,
         backgroundColor: theme.colorScheme.surface,
         indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.22),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return theme.textTheme.labelSmall?.copyWith(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onSurfaceVariant,
+          );
+        }),
         onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
