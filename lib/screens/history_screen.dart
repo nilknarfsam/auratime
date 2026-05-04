@@ -77,7 +77,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   children: [
                     const SizedBox(height: 8),
                     Text('Histórico', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 8),
                     _buildFilterSection(theme),
                     const SizedBox(height: 12),
                     _buildSummaryCard(theme),
@@ -265,62 +265,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<_HistoryFilter>(
-            segments: [
-              ButtonSegment(
+        Container(
+          height: 36,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: theme.colorScheme.outline.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            children: [
+              _buildCompactSegment(
+                theme: theme,
                 value: _HistoryFilter.currentMonth,
-                label: const Text(
-                  'Mês atual',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                label: 'Mês',
+                isCompact: isCompact,
               ),
-              ButtonSegment(
+              _buildCompactSegment(
+                theme: theme,
                 value: _HistoryFilter.last7Days,
-                label: const Text(
-                  '7 dias',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                label: '7d',
+                isCompact: isCompact,
               ),
-              ButtonSegment(
+              _buildCompactSegment(
+                theme: theme,
                 value: _HistoryFilter.last30Days,
-                label: const Text(
-                  '30 dias',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                label: '30d',
+                isCompact: isCompact,
               ),
-              ButtonSegment(
+              _buildCompactSegment(
+                theme: theme,
                 value: _HistoryFilter.customRange,
-                label: Text(
-                  isCompact ? 'Personaliz.' : 'Personalizado',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                label: isCompact ? 'Período' : 'Personaliz.',
+                isCompact: isCompact,
               ),
             ],
-            selected: {_selectedFilter},
-            showSelectedIcon: false,
-            onSelectionChanged: (selected) async {
-              final next = selected.first;
-              if (next == _HistoryFilter.customRange) {
-                final picked = await _pickCustomRange();
-                if (picked == null) {
-                  return;
-                }
-                setState(() {
-                  _selectedFilter = _HistoryFilter.customRange;
-                  _customRange = picked;
-                });
-                return;
-              }
-              setState(() {
-                _selectedFilter = next;
-              });
-            },
           ),
         ),
         if (_selectedFilter == _HistoryFilter.customRange) ...[
@@ -355,6 +336,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildCompactSegment({
+    required ThemeData theme,
+    required _HistoryFilter value,
+    required String label,
+    required bool isCompact,
+  }) {
+    final isSelected = _selectedFilter == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () async {
+          if (value == _HistoryFilter.customRange) {
+            final picked = await _pickCustomRange();
+            if (picked == null) {
+              return;
+            }
+            setState(() {
+              _selectedFilter = _HistoryFilter.customRange;
+              _customRange = picked;
+            });
+            return;
+          }
+          setState(() {
+            _selectedFilter = value;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.primary.withValues(alpha: 0.22)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.20),
+                      blurRadius: 10,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontSize: isCompact ? 11.5 : 12,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              color: isSelected
+                  ? theme.colorScheme.onSurface
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.62),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
