@@ -18,10 +18,9 @@ class PunchButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
-    final secondary = theme.colorScheme.secondary;
     final backgroundColor = canPunch
-        ? theme.colorScheme.surfaceContainerHighest
-        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45);
+        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.92)
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.42);
     final foregroundColor =
         canPunch ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant;
 
@@ -31,21 +30,16 @@ class PunchButton extends StatelessWidget {
         boxShadow: canPunch
             ? [
                 BoxShadow(
-                  color: primary.withValues(alpha: 0.26),
-                  blurRadius: 24,
-                  spreadRadius: 3,
-                ),
-                BoxShadow(
-                  color: secondary.withValues(alpha: 0.13),
-                  blurRadius: 34,
-                  spreadRadius: 2,
+                  color: primary.withValues(alpha: 0.20),
+                  blurRadius: 20,
+                  spreadRadius: 1.5,
                 ),
               ]
             : const [],
       ),
       child: SizedBox(
-        width: 182,
-        height: 182,
+        width: 174,
+        height: 174,
         child: Opacity(
           opacity: canPunch ? 1 : 0.85,
           child: FloatingActionButton(
@@ -61,7 +55,7 @@ class PunchButton extends StatelessWidget {
                 isDayFinalized ? 'Dia finalizado' : 'Bater Ponto Agora',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 17,
                   fontWeight: FontWeight.w700,
                   height: 1.25,
                 ),
@@ -76,6 +70,9 @@ class PunchButton extends StatelessWidget {
       return button;
     }
 
-    return ScaleTransition(scale: pulseAnimation, child: button);
+    return ScaleTransition(
+      scale: Tween<double>(begin: 1, end: 1.014).animate(pulseAnimation),
+      child: button,
+    );
   }
 }

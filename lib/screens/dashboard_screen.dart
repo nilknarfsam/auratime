@@ -84,19 +84,30 @@ class _DashboardScreenState extends State<DashboardScreen>
                         weekBalance: _weekBalance,
                       ),
                       const SizedBox(height: 24),
-                      Center(
-                        child: _isLoading
-                            ? const CircularProgressIndicator()
-                            : PunchButton(
-                                canPunch:
-                                    !_isLoading && _isWorkingDay(dayType) && !_isDayFinalized,
-                                isDayFinalized: _isDayFinalized,
-                                onPressed:
-                                    !_isLoading && _isWorkingDay(dayType) && !_isDayFinalized
-                                    ? _recordNow
-                                    : null,
-                                pulseAnimation: _pulseAnimation,
-                              ),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withValues(alpha: 0.18),
+                          ),
+                          color: theme.colorScheme.surface.withValues(alpha: 0.18),
+                        ),
+                        child: Center(
+                          child: _isLoading
+                              ? const CircularProgressIndicator()
+                              : PunchButton(
+                                  canPunch:
+                                      !_isLoading && _isWorkingDay(dayType) && !_isDayFinalized,
+                                  isDayFinalized: _isDayFinalized,
+                                  onPressed:
+                                      !_isLoading && _isWorkingDay(dayType) && !_isDayFinalized
+                                      ? _recordNow
+                                      : null,
+                                  pulseAnimation: _pulseAnimation,
+                                ),
+                        ),
                       ),
                       const SizedBox(height: 28),
                       if (_isWorkingDay(dayType)) ...[
