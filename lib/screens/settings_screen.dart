@@ -209,25 +209,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       dense: true,
                       visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
                       title: Text(
-                        'Habilitar sábado compensação',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      value: _saturdayCompensationEnabled,
-                      onChanged: _isSaving
-                          ? null
-                          : (value) {
-                              setState(() {
-                                _saturdayCompensationEnabled = value;
-                              });
-                            },
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-                      title: Text(
                         'Usar feriados nacionais do Brasil',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
@@ -271,13 +252,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                     ),
                     _buildShiftEditor(
-                      title: 'Turno de sábado compensação',
+                      title: 'Turno modelo para sábado compensado',
                       shift: _saturdayShift,
                       onUpdate: (shift) {
                         setState(() {
                           _saturdayShift = shift.copyWith(type: ShiftType.custom);
                         });
                       },
+                    ),
+                    Text(
+                      'Esse turno é usado como modelo quando você cria uma regra de sábado compensado no calendário da empresa.',
+                      style: subtleTextStyle,
                     ),
                     const Divider(height: 20),
                     ListTile(
@@ -288,7 +273,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     Text(
-                      'Use regras explícitas para exceções reais de fábrica. Finais de semana sem regra continuam como folga padrão.',
+                      'Sábados e domingos são folga por padrão. Para trabalhar em um sábado, adicione uma regra no calendário da empresa.',
                       style: subtleTextStyle,
                     ),
                     const SizedBox(height: 10),
