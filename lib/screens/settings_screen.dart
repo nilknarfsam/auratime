@@ -76,7 +76,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final subtleTextStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
     );
-    final shiftMenuItemWidth = (MediaQuery.sizeOf(context).width - 40).clamp(260.0, 340.0);
 
     return Scaffold(
       body: SafeArea(
@@ -132,99 +131,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: sectionTitleStyle,
                     ),
                     const SizedBox(height: 10),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Row(
-                        children: [
-                          Icon(Icons.schedule_rounded, size: 16),
-                          SizedBox(width: 6),
-                          Text('Turno padrão'),
-                        ],
-                      ),
-                      trailing: DropdownButton<ShiftType>(
-                        value: _defaultShiftType,
-                        isDense: false,
-                        itemHeight: 64,
-                        onChanged: _isSaving
-                            ? null
-                            : (value) {
-                                if (value == null) {
-                                  return;
-                                }
-                                setState(() {
-                                  _defaultShiftType = value;
-                                });
-                              },
-                        selectedItemBuilder: (context) {
-                          return ShiftType.values
-                              .map(
-                                (item) => Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    _shiftTitle(item),
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    softWrap: false,
-                                  ),
-                                ),
-                              )
-                              .toList();
-                        },
-                        items: ShiftType.values.map((item) {
-                          return DropdownMenuItem(
-                            value: item,
-                            child: SizedBox(
-                              height: 64,
-                              width: shiftMenuItemWidth,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isSaving ? null : () => _showDefaultShiftBottomSheet(context),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(
-                                      Icons.schedule_rounded,
-                                      size: 20,
-                                      color: theme.colorScheme.onSurfaceVariant
-                                          .withValues(alpha: 0.85),
+                                    Text(
+                                      'Turno padrão',
+                                      style: theme.textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.2,
+                                      ),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            _shiftTitle(item),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            softWrap: false,
-                                            style: theme.textTheme.bodyMedium?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 3),
-                                          Text(
-                                            _shiftRange(item),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            softWrap: false,
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: theme.colorScheme.onSurfaceVariant,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _shiftTitle(_defaultShiftType),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                      style: theme.textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _shiftRange(_defaultShiftType),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 28,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     SwitchListTile(
@@ -506,6 +466,167 @@ class _SettingsScreenState extends State<SettingsScreen> {
         label,
         style: theme.textTheme.labelMedium?.copyWith(
           fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDefaultShiftBottomSheet(BuildContext context) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        side: BorderSide(
+          color: colorScheme.outline.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      builder: (sheetContext) {
+        final maxSheetHeight = MediaQuery.sizeOf(sheetContext).height * 0.55;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 4, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Selecionar turno',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.35,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Fechar',
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colorScheme.outline.withValues(alpha: 0.28),
+                ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxSheetHeight),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 8),
+                        for (var i = 0; i < ShiftType.values.length; i++) ...[
+                          if (i > 0)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Divider(
+                                height: 1,
+                                color: colorScheme.outline.withValues(alpha: 0.14),
+                              ),
+                            ),
+                          _buildDefaultShiftSheetTile(sheetContext, theme, ShiftType.values[i]),
+                        ],
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDefaultShiftSheetTile(
+    BuildContext sheetContext,
+    ThemeData theme,
+    ShiftType type,
+  ) {
+    final colorScheme = theme.colorScheme;
+    final selected = type == _defaultShiftType;
+    final subtleClock = colorScheme.onSurfaceVariant.withValues(
+      alpha: selected ? 0.9 : 0.55,
+    );
+    return Material(
+      color: selected ? colorScheme.primary.withValues(alpha: 0.18) : Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(sheetContext).pop();
+          if (!mounted) {
+            return;
+          }
+          setState(() => _defaultShiftType = type);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 56),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.schedule_outlined,
+                  size: 20,
+                  color: selected ? colorScheme.primary : subtleClock,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _shiftTitle(type),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: selected ? colorScheme.primary : colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _shiftRange(type),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (selected)
+                  Icon(Icons.check_circle_rounded, color: colorScheme.primary, size: 26)
+                else
+                  const SizedBox(width: 26),
+              ],
+            ),
+          ),
         ),
       ),
     );
