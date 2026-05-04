@@ -1,4 +1,7 @@
+import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
+import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/services/app_settings_service.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -78,17 +81,19 @@ class PdfReportService {
 
   static pw.Widget _buildTable(List<TimeRecord> records) {
     final headers = ['Data', 'Entrada', 'Saída', 'Status', 'Saldo do Dia'];
+    final workDayRule = AppSettingsService.current.workDayRule;
+    final engine = WorkScheduleEngine(workDayRule);
     final data = records.map((record) {
-      final status = switch (record.dayType) {
-        DayType.holiday => 'Feriado',
-        DayType.dayOff => 'Folga',
-        DayType.regular => 'Normal',
-      };
+      final status = buildReportDayLabel(
+        date: record.date,
+        workDayRule: workDayRule,
+      );
       final statusWithNote = record.hasNote
           ? '$status\nObs: ${record.note!.trim()}'
           : status;
 
-      final dayBalance = record.dayType == DayType.holiday
+      final dayType = engine.getDayType(record.date);
+      final dayBalance = dayType == WorkDayType.holiday
           ? Duration.zero
           : record.balance;
 
@@ -121,6 +126,31 @@ class PdfReportService {
       cellPadding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       border: pw.TableBorder.all(color: PdfColors.grey300),
     );
+  }
+
+  static String buildReportDayLabel({
+    required DateTime date,
+    required WorkDayRule workDayRule,
+  }) {
+    final engine = WorkScheduleEngine(workDayRule);
+    final dayType = engine.getDayType(date);
+    final hasExplicitRule = engine.hasExplicitRuleForDate(date);
+    final holiday = engine.getHolidayForDate(date);
+
+    final label = switch (dayType) {
+      WorkDayType.regular => hasExplicitRule ? 'Dia normal por exceção' : 'Normal',
+      WorkDayType.saturdayCompensation => 'Sábado trabalhado',
+      WorkDayType.holiday => 'Feriado',
+      WorkDayType.holidayWorkedSwap => 'Feriado trabalhado por troca',
+      WorkDayType.compensatoryDayOff => hasExplicitRule
+          ? 'Folga compensatória'
+          : 'Folga',
+    };
+
+    if (dayType == WorkDayType.holiday && holiday != null && holiday.name.trim().isNotEmpty) {
+      return '$label (${holiday.name.trim()})';
+    }
+    return label;
   }
 
   static pw.Widget _buildFooter(Duration totalBalance) {

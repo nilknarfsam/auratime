@@ -75,6 +75,17 @@ class WorkScheduleEngine {
     return presetAndCustom.any((holiday) => _sameDate(holiday.date, normalized));
   }
 
+  Holiday? getHolidayForDate(DateTime date) {
+    final normalized = _normalizeDate(date);
+    final presetAndCustom = _holidaysForYear(normalized.year);
+    for (final holiday in presetAndCustom) {
+      if (_sameDate(holiday.date, normalized)) {
+        return holiday;
+      }
+    }
+    return null;
+  }
+
   bool isWorkingDay(DateTime date) {
     final expected = calculateExpectedDuration(date);
     return expected > Duration.zero;
