@@ -37,22 +37,14 @@ class DashboardInsightsPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AnimatedBuilder(
-          animation: todayRevision,
+          animation: Listenable.merge([todayRevision, weekRevision]),
           builder: (context, child) {
             return RepaintBoundary(
               child: _DashboardLiveMetricsBlock(
                 key: ValueKey(todayRecord().date),
                 todayRecord: todayRecord,
+                insights: insights,
               ),
-            );
-          },
-        ),
-        const SizedBox(height: 10),
-        AnimatedBuilder(
-          animation: weekRevision,
-          builder: (context, child) {
-            return RepaintBoundary(
-              child: _InsightsCard(insights: insights),
             );
           },
         ),
@@ -79,9 +71,11 @@ class _DashboardLiveMetricsBlock extends StatefulWidget {
   const _DashboardLiveMetricsBlock({
     super.key,
     required this.todayRecord,
+    required this.insights,
   });
 
   final TimeRecord Function() todayRecord;
+  final List<InsightItem> insights;
 
   @override
   State<_DashboardLiveMetricsBlock> createState() => _DashboardLiveMetricsBlockState();
@@ -145,8 +139,6 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
       grossShiftDuration: expectedGross,
       lunchBreak: settings.lunchBreakDuration,
     );
-    final progressPredictedExit = _predictedExit(settings, record);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -225,6 +217,19 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
                       ),
                   ],
                 ),
+                if (widget.insights.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    widget.insights.first.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -260,16 +265,6 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (progressPredictedExit != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Previsão de saída: ${_timeFormatter.format(progressPredictedExit)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -392,83 +387,6 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
     final hh = hour.toString().padLeft(2, '0');
     final mm = minute.toString().padLeft(2, '0');
     return '$hh:$mm';
-  }
-}
-
-class _InsightsCard extends StatelessWidget {
-  const _InsightsCard({required this.insights});
-
-  final List<InsightItem> insights;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Insights',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...insights.take(3).map((insight) {
-              final color = _insightColor(theme, insight.severity);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      _insightIcon(insight.severity),
-                      size: 16,
-                      color: color,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        insight.message,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _insightIcon(InsightSeverity severity) {
-    switch (severity) {
-      case InsightSeverity.info:
-        return Icons.insights_rounded;
-      case InsightSeverity.warning:
-        return Icons.warning_amber_rounded;
-      case InsightSeverity.success:
-        return Icons.auto_graph_rounded;
-    }
-  }
-
-  Color _insightColor(ThemeData theme, InsightSeverity severity) {
-    switch (severity) {
-      case InsightSeverity.info:
-        return theme.colorScheme.secondary;
-      case InsightSeverity.warning:
-        return const Color(0xFFFFD166);
-      case InsightSeverity.success:
-        return const Color(0xFF56F09B);
-    }
   }
 }
 

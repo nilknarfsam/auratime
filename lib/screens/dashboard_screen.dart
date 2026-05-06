@@ -26,8 +26,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen>
-    with SingleTickerProviderStateMixin {
+class _DashboardScreenState extends State<DashboardScreen> {
   final TimeRecordService _timeRecordService = TimeRecordService();
   TimeRecord _todayRecord = TimeRecord();
   Duration _weekBalance = Duration.zero;
@@ -38,8 +37,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ValueNotifier<int> _weekRevision = ValueNotifier<int>(0);
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier<bool>(false);
   bool _todayLoadFailed = false;
-  late final AnimationController _pulseController;
-  late final Animation<double> _pulseAnimation;
   late final DateFormat _hourFormatter;
   late final Listenable _punchAreaListenable;
 
@@ -49,13 +46,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     _hourFormatter = DateFormat('HH:mm');
     _punchAreaListenable = Listenable.merge([_loadingNotifier, _todayRevision]);
     _loadTodayRecord();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1700),
-    )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 1, end: 1.025).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
   }
 
   @override
@@ -63,7 +53,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     _todayRevision.dispose();
     _weekRevision.dispose();
     _loadingNotifier.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
@@ -102,7 +91,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const SizedBox(height: 16),
                       _buildLoadFailedBanner(theme),
                     ],
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18),
                     RepaintBoundary(
                       child: AnimatedBuilder(
                         animation: _punchAreaListenable,
@@ -114,43 +103,35 @@ class _DashboardScreenState extends State<DashboardScreen>
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: theme.colorScheme.outline.withValues(alpha: 0.18),
+                              if (isLoading)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: theme.colorScheme.outline.withValues(alpha: 0.18),
+                                    ),
+                                    color: theme.colorScheme.surface.withValues(alpha: 0.18),
                                   ),
-                                  color: theme.colorScheme.surface.withValues(alpha: 0.18),
+                                  child: const Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(),
+                                      SizedBox(height: 10),
+                                      Text('Carregando…'),
+                                    ],
+                                  ),
+                                )
+                              else
+                                PunchButton(
+                                  canPunch: _isWorkingDay(dayType) && !_isDayFinalized,
+                                  isDayFinalized: _isDayFinalized,
+                                  onPressed: _isWorkingDay(dayType) && !_isDayFinalized
+                                      ? _recordNow
+                                      : null,
                                 ),
-                                child: Center(
-                                  child: isLoading
-                                      ? const Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            SizedBox(height: 8),
-                                            CircularProgressIndicator(),
-                                            SizedBox(height: 10),
-                                            Text('Carregando…'),
-                                            SizedBox(height: 8),
-                                          ],
-                                        )
-                                      : PunchButton(
-                                          canPunch: !isLoading &&
-                                              _isWorkingDay(dayType) &&
-                                              !_isDayFinalized,
-                                          isDayFinalized: _isDayFinalized,
-                                          onPressed: !isLoading &&
-                                                  _isWorkingDay(dayType) &&
-                                                  !_isDayFinalized
-                                              ? _recordNow
-                                              : null,
-                                          pulseAnimation: _pulseAnimation,
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(height: 28),
+                              const SizedBox(height: 20),
                               if (_isWorkingDay(dayType)) ...[
                                 TimeRecordCard(
                                   label: 'Entrada',
@@ -187,15 +168,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 _buildNoteSection(theme, isLoading),
                               ] else
                                 _buildSpecialDayMessage(theme, dayType),
-                              const SizedBox(height: 24),
-                              Align(
-                                child: TextButton(
-                                  onPressed: isLoading || !_isWorkingDay(dayType)
-                                      ? null
-                                      : _fillWithDefaultSchedule,
-                                  child: const Text('Preencher com horários padrões'),
-                                ),
-                              ),
                             ],
                           );
                         },
@@ -329,29 +301,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (mounted) {
         SnackBarHelper.showError(context, 'Não foi possível registrar o ponto.');
       }
-    } finally {
-      if (mounted) {
-        _loadingNotifier.value = false;
-      }
-    }
-  }
-
-  Future<void> _fillWithDefaultSchedule() async {
-    _loadingNotifier.value = true;
-    try {
-      final filledRecord = await _timeRecordService.fillWithDefaultSchedule(date: DateTime.now());
-      if (!mounted) {
-        return;
-      }
-      _todayRecord = filledRecord;
-      _todayRevision.value++;
-      await _refreshWeekSummary();
-      if (!mounted) {
-        return;
-      }
-      unawaited(syncHomeWidgetStatus());
-      widget.onHistoryRefreshRequested();
-      SnackBarHelper.showSuccess(context, 'Horários padrões aplicados!');
     } finally {
       if (mounted) {
         _loadingNotifier.value = false;
