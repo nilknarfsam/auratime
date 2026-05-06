@@ -54,6 +54,15 @@ void main() {
     expect(label, '30 de abr.');
   });
 
+  test('history row title includes weekday and date compact', () {
+    final label = formatHistoryCardDateWithWeekday(
+      DateTime(2026, 5, 4),
+      includeMonthAbbreviation: true,
+    );
+
+    expect(label, 'Seg • 4 de mai.');
+  });
+
   test('initial month display limits to five records', () {
     final visibleCount = computeVisibleRecordCount(
       totalRecords: 12,

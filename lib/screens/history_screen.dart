@@ -59,6 +59,25 @@ String formatHistoryCardDateLabel(DateTime date, {required bool includeMonthAbbr
 }
 
 @visibleForTesting
+String formatHistoryCardDateWithWeekday(
+  DateTime date, {
+  required bool includeMonthAbbreviation,
+}) {
+  var weekdayRaw = DateFormat('EEE', 'pt_BR').format(date);
+  if (weekdayRaw.endsWith('.')) {
+    weekdayRaw = weekdayRaw.substring(0, weekdayRaw.length - 1);
+  }
+  final weekday = weekdayRaw.isEmpty
+      ? weekdayRaw
+      : '${weekdayRaw[0].toUpperCase()}${weekdayRaw.substring(1)}';
+  final datePart = formatHistoryCardDateLabel(
+    date,
+    includeMonthAbbreviation: includeMonthAbbreviation,
+  );
+  return '$weekday • $datePart';
+}
+
+@visibleForTesting
 int computeVisibleRecordCount({
   required int totalRecords,
   required bool isCurrentMonthFilter,
@@ -905,7 +924,7 @@ class _HistoryRowViewModel {
 
     return _HistoryRowViewModel(
       record: record,
-      dateTitle: formatHistoryCardDateLabel(
+      dateTitle: formatHistoryCardDateWithWeekday(
         record.date,
         includeMonthAbbreviation: includeMonthAbbreviation,
       ),
@@ -979,6 +998,8 @@ class _HistoryRecordTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     row.dateTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
