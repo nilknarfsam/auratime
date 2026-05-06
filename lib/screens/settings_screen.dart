@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:auratime/core/ui/snackbar_helper.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
@@ -775,7 +776,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       defaultExitHour: _effectiveDefaultShift.endHour,
       defaultExitMinute: _effectiveDefaultShift.endMinute,
       lunchBreakMinutes: _lunchBreak.inMinutes,
-      dailyGoalMinutes: _effectiveDefaultShift.duration.inMinutes,
+      dailyGoalMinutes:
+          math.max(0, (_effectiveDefaultShift.duration - _lunchBreak).inMinutes),
       cycleStartDay: _cycleStartDay,
       workDayRule: WorkDayRule(
         defaultShiftType: _defaultShiftType,

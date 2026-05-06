@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:auratime/domain/insights/insights_engine.dart';
 import 'package:auratime/domain/work_schedule/daily_status_engine.dart';
+import 'package:auratime/domain/work_schedule/work_day_accounting.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/models/time_record.dart';
 import 'package:auratime/services/app_settings_service.dart';
@@ -139,7 +140,11 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
 
     final progress = _todayProgress(settings, record);
     final workedToday = _workedDurationToday(settings, record);
-    final expectedDuration = _engine.calculateExpectedDuration(record.date);
+    final expectedGross = _engine.calculateExpectedDuration(record.date);
+    final expectedNet = WorkDayAccounting.expectedNetWork(
+      grossShiftDuration: expectedGross,
+      lunchBreak: settings.lunchBreakDuration,
+    );
     final progressPredictedExit = _predictedExit(settings, record);
 
     return Column(
@@ -250,7 +255,7 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${(progress * 100).toStringAsFixed(0)}% • ${_formatDuration(workedToday)} de ${_formatDuration(expectedDuration)}',
+                  '${(progress * 100).toStringAsFixed(0)}% • ${_formatDuration(workedToday)} de ${_formatDuration(expectedNet)}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -274,33 +279,27 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
   }
 
   Duration _workedDurationToday(AppSettings settings, TimeRecord record) {
-    if (record.entryTime == null) {
-      return Duration.zero;
-    }
-    if (record.exitTime != null) {
-      return record.totalWorkedHours;
-    }
-    final gross = _now.difference(record.entryTime!);
-    if (gross <= Duration.zero) {
-      return Duration.zero;
-    }
-    if (gross <= settings.lunchBreakDuration) {
-      return gross;
-    }
-    return gross - settings.lunchBreakDuration;
+    return WorkDayAccounting.workedNetSession(
+      entry: record.entryTime,
+      exit: record.exitTime,
+      now: _now,
+      lunchBreak: settings.lunchBreakDuration,
+    );
   }
 
   double _todayProgress(AppSettings settings, TimeRecord record) {
     if (!_engine.isWorkingDay(record.date)) {
       return 0;
     }
-    final worked = _workedDurationToday(settings, record).inMinutes;
-    final goal = _engine.calculateExpectedDuration(record.date).inMinutes;
-    if (goal <= 0) {
-      return 0;
-    }
-    final ratio = worked / goal;
-    return ratio.clamp(0, 1).toDouble();
+    final worked = _workedDurationToday(settings, record);
+    final expectedNet = WorkDayAccounting.expectedNetWork(
+      grossShiftDuration: _engine.calculateExpectedDuration(record.date),
+      lunchBreak: settings.lunchBreakDuration,
+    );
+    return WorkDayAccounting.progress01(
+      workedNet: worked,
+      expectedNet: expectedNet,
+    );
   }
 
   String _formatDuration(Duration duration) {

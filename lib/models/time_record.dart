@@ -1,4 +1,5 @@
 import 'package:isar/isar.dart';
+import 'package:auratime/domain/work_schedule/work_day_accounting.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/services/app_settings_service.dart';
 
@@ -46,7 +47,11 @@ class TimeRecord {
   Duration get balance {
     final settings = AppSettingsService.current;
     final engine = WorkScheduleEngine(settings.workDayRule);
-    final expectedDuration = engine.calculateExpectedDuration(date);
+    final expectedGross = engine.calculateExpectedDuration(date);
+    final expectedNet = WorkDayAccounting.expectedNetWork(
+      grossShiftDuration: expectedGross,
+      lunchBreak: settings.lunchBreakDuration,
+    );
     if (dayType == DayType.holiday) {
       return Duration.zero;
     }
@@ -56,7 +61,7 @@ class TimeRecord {
     if (totalWorkedHours == Duration.zero) {
       return Duration.zero;
     }
-    return totalWorkedHours - expectedDuration;
+    return totalWorkedHours - expectedNet;
   }
 
   @ignore

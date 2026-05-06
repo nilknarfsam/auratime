@@ -1,5 +1,7 @@
+import 'package:auratime/domain/work_schedule/work_day_accounting.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/models/time_record.dart';
+import 'package:auratime/services/app_settings_service.dart';
 
 enum DailyStatusType {
   offDay,
@@ -111,8 +113,12 @@ class DailyStatusEngine {
     }
 
     final worked = todayRecord.totalWorkedHours;
-    final expected = workScheduleEngine.calculateExpectedDuration(day);
-    final balance = worked - expected;
+    final expectedGross = workScheduleEngine.calculateExpectedDuration(day);
+    final expectedNet = WorkDayAccounting.expectedNetWork(
+      grossShiftDuration: expectedGross,
+      lunchBreak: AppSettingsService.current.lunchBreakDuration,
+    );
+    final balance = worked - expectedNet;
     if (balance.inMinutes < 0) {
       return DailyStatusResult(
         statusType: DailyStatusType.negativeBalance,
