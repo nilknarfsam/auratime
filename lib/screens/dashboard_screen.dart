@@ -125,9 +125,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 )
                               else
                                 PunchButton(
-                                  canPunch: _isWorkingDay(dayType) && !_isDayFinalized,
+                                  canPunch: _isCalendarTodayRecord &&
+                                      _isWorkingDay(dayType) &&
+                                      !_isDayFinalized,
                                   isDayFinalized: _isDayFinalized,
-                                  onPressed: _isWorkingDay(dayType) && !_isDayFinalized
+                                  onPressed: _isCalendarTodayRecord &&
+                                          _isWorkingDay(dayType) &&
+                                          !_isDayFinalized
                                       ? _recordNow
                                       : null,
                                 ),
@@ -141,7 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     shift?.startMinute ?? settings.defaultEntryMinute,
                                   ),
                                   timeFormatter: _hourFormatter,
-                                  onTap: isLoading
+                                  onTap: isLoading || !_isCalendarTodayRecord
                                       ? null
                                       : () => _editRecordTime(
                                             _RecordField.entry,
@@ -157,7 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     shift?.endMinute ?? settings.defaultExitMinute,
                                   ),
                                   timeFormatter: _hourFormatter,
-                                  onTap: isLoading
+                                  onTap: isLoading || !_isCalendarTodayRecord
                                       ? null
                                       : () => _editRecordTime(
                                             _RecordField.exit,
@@ -249,7 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildNoteSection(ThemeData theme, bool isLoading) {
     return TextButton.icon(
-      onPressed: isLoading ? null : _showNoteDialog,
+      onPressed: isLoading || !_isCalendarTodayRecord ? null : _showNoteDialog,
       icon: const Icon(Icons.edit_note_rounded),
       label: Text(_todayRecord.hasNote ? 'Editar observação' : 'Adicionar observação'),
     );
@@ -376,6 +380,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   bool get _isDayFinalized => _todayRecord.entryTime != null && _todayRecord.exitTime != null;
+
+  bool get _isCalendarTodayRecord {
+    final d = _todayRecord.date;
+    final n = DateTime.now();
+    return d.year == n.year && d.month == n.month && d.day == n.day;
+  }
 
   Future<void> _refreshWeekSummary() async {
     try {
