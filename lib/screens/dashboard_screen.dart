@@ -17,6 +17,41 @@ import 'package:intl/intl.dart';
 
 enum _RecordField { entry, exit }
 
+enum _SaturdayClassificationOption { compensation, swap, regularException }
+
+@visibleForTesting
+bool shouldPromptSaturdayClassification({
+  required DateTime date,
+  required WorkScheduleEngine engine,
+}) {
+  final day = DateTime(date.year, date.month, date.day);
+  return day.weekday == DateTime.saturday &&
+      !engine.hasExplicitRuleForDate(day);
+}
+
+@visibleForTesting
+WorkDayRule applySaturdayClassificationRule({
+  required WorkDayRule baseRule,
+  required DateTime date,
+  required WorkDayType dayType,
+}) {
+  final normalizedDate = DateTime(date.year, date.month, date.day);
+  final updatedRules = [
+    ...baseRule.companyCalendarRules.where(
+      (rule) =>
+          rule.date.year != normalizedDate.year ||
+          rule.date.month != normalizedDate.month ||
+          rule.date.day != normalizedDate.day,
+    ),
+    CompanyCalendarRule(
+      date: normalizedDate,
+      dayType: dayType,
+      note: 'Classificação aplicada no registro de ponto',
+    ),
+  ];
+  return baseRule.copyWith(companyCalendarRules: updatedRules);
+}
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.onHistoryRefreshRequested});
 
@@ -67,7 +102,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (context, constraints) {
             const scrollPadding = EdgeInsets.fromLTRB(20, 16, 20, 20);
             final minScrollContentHeight = constraints.hasBoundedHeight
-                ? (constraints.maxHeight - scrollPadding.vertical).clamp(0.0, double.infinity)
+                ? (constraints.maxHeight - scrollPadding.vertical).clamp(
+                    0.0,
+                    double.infinity,
+                  )
                 : 0.0;
             return SingleChildScrollView(
               padding: scrollPadding,
@@ -97,22 +135,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         animation: _punchAreaListenable,
                         builder: (context, _) {
                           final isLoading = _loadingNotifier.value;
-                          final engine = WorkScheduleEngine(settings.workDayRule);
+                          final engine = WorkScheduleEngine(
+                            settings.workDayRule,
+                          );
                           final dayType = engine.getDayType(_todayRecord.date);
-                          final shift = engine.getShiftForDate(_todayRecord.date);
+                          final shift = engine.getShiftForDate(
+                            _todayRecord.date,
+                          );
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (isLoading)
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 20,
+                                  ),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: theme.colorScheme.outline.withValues(alpha: 0.18),
+                                      color: theme.colorScheme.outline
+                                          .withValues(alpha: 0.18),
                                     ),
-                                    color: theme.colorScheme.surface.withValues(alpha: 0.18),
+                                    color: theme.colorScheme.surface.withValues(
+                                      alpha: 0.18,
+                                    ),
                                   ),
                                   child: const Column(
                                     mainAxisSize: MainAxisSize.min,
@@ -125,11 +172,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 )
                               else
                                 PunchButton(
-                                  canPunch: _isCalendarTodayRecord &&
+                                  canPunch:
+                                      _isCalendarTodayRecord &&
                                       _isWorkingDay(dayType) &&
                                       !_isDayFinalized,
                                   isDayFinalized: _isDayFinalized,
-                                  onPressed: _isCalendarTodayRecord &&
+                                  onPressed:
+                                      _isCalendarTodayRecord &&
                                           _isWorkingDay(dayType) &&
                                           !_isDayFinalized
                                       ? _recordNow
@@ -141,16 +190,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   label: 'Entrada',
                                   value: _todayRecord.entryTime,
                                   expected: _formatExpectedTime(
-                                    shift?.startHour ?? settings.defaultEntryHour,
-                                    shift?.startMinute ?? settings.defaultEntryMinute,
+                                    shift?.startHour ??
+                                        settings.defaultEntryHour,
+                                    shift?.startMinute ??
+                                        settings.defaultEntryMinute,
                                   ),
                                   timeFormatter: _hourFormatter,
                                   onTap: isLoading || !_isCalendarTodayRecord
                                       ? null
                                       : () => _editRecordTime(
-                                            _RecordField.entry,
-                                            _todayRecord.entryTime,
-                                          ),
+                                          _RecordField.entry,
+                                          _todayRecord.entryTime,
+                                        ),
                                 ),
                                 const SizedBox(height: 12),
                                 TimeRecordCard(
@@ -158,15 +209,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   value: _todayRecord.exitTime,
                                   expected: _formatExpectedTime(
                                     shift?.endHour ?? settings.defaultExitHour,
-                                    shift?.endMinute ?? settings.defaultExitMinute,
+                                    shift?.endMinute ??
+                                        settings.defaultExitMinute,
                                   ),
                                   timeFormatter: _hourFormatter,
                                   onTap: isLoading || !_isCalendarTodayRecord
                                       ? null
                                       : () => _editRecordTime(
-                                            _RecordField.exit,
-                                            _todayRecord.exitTime,
-                                          ),
+                                          _RecordField.exit,
+                                          _todayRecord.exitTime,
+                                        ),
                                 ),
                                 const SizedBox(height: 14),
                                 _buildNoteSection(theme, isLoading),
@@ -232,16 +284,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final engine = WorkScheduleEngine(AppSettingsService.current.workDayRule);
     final message = switch (dayType) {
       WorkDayType.holiday => 'Aproveite seu feriado!',
-      WorkDayType.compensatoryDayOff => engine.hasExplicitRuleForDate(_todayRecord.date)
-          ? 'Aproveite sua folga compensatória!'
-          : 'Aproveite sua folga!',
+      WorkDayType.compensatoryDayOff =>
+        engine.hasExplicitRuleForDate(_todayRecord.date)
+            ? 'Aproveite sua folga compensatória!'
+            : 'Aproveite sua folga!',
       _ => 'Dia sem jornada prevista.',
     };
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.55,
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
@@ -255,7 +310,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return TextButton.icon(
       onPressed: isLoading || !_isCalendarTodayRecord ? null : _showNoteDialog,
       icon: const Icon(Icons.edit_note_rounded),
-      label: Text(_todayRecord.hasNote ? 'Editar observação' : 'Adicionar observação'),
+      label: Text(
+        _todayRecord.hasNote ? 'Editar observação' : 'Adicionar observação',
+      ),
     );
   }
 
@@ -288,6 +345,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _recordNow() async {
     _loadingNotifier.value = true;
     try {
+      await _ensureSaturdayClassificationIfNeeded();
+      if (!mounted) {
+        return;
+      }
       final result = await _timeRecordService.recordCurrentTime();
       if (!mounted) {
         return;
@@ -301,9 +362,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       unawaited(syncHomeWidgetStatus());
       widget.onHistoryRefreshRequested();
       SnackBarHelper.showSuccess(context, 'Ponto registrado com sucesso!');
+    } on StateError {
+      if (mounted) {
+        SnackBarHelper.showWarning(
+          context,
+          'Escolha uma classificação para registrar ponto neste sábado.',
+        );
+      }
     } catch (_) {
       if (mounted) {
-        SnackBarHelper.showError(context, 'Não foi possível registrar o ponto.');
+        SnackBarHelper.showError(
+          context,
+          'Não foi possível registrar o ponto.',
+        );
       }
     } finally {
       if (mounted) {
@@ -312,7 +383,122 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _editRecordTime(_RecordField field, DateTime? currentValue) async {
+  Future<void> _ensureSaturdayClassificationIfNeeded() async {
+    final now = DateTime.now();
+    final currentSettings = AppSettingsService.current;
+    final engine = WorkScheduleEngine(currentSettings.workDayRule);
+    if (!shouldPromptSaturdayClassification(date: now, engine: engine)) {
+      return;
+    }
+
+    final selected = await _showSaturdayClassificationSheet();
+    if (!mounted) {
+      return;
+    }
+    if (selected == null) {
+      throw StateError('Classificação de sábado cancelada pelo usuário.');
+    }
+
+    final dayType = switch (selected) {
+      _SaturdayClassificationOption.compensation =>
+        WorkDayType.saturdayCompensation,
+      _SaturdayClassificationOption.swap => WorkDayType.holidayWorkedSwap,
+      _SaturdayClassificationOption.regularException => WorkDayType.regular,
+    };
+    final updatedRule = applySaturdayClassificationRule(
+      baseRule: currentSettings.workDayRule,
+      date: now,
+      dayType: dayType,
+    );
+    final updatedSettings = currentSettings.copyWith(workDayRule: updatedRule);
+    await AppSettingsService.save(updatedSettings);
+  }
+
+  Future<_SaturdayClassificationOption?> _showSaturdayClassificationSheet() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return showModalBottomSheet<_SaturdayClassificationOption>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Como classificar este sábado?',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sábados são folga por padrão. Para registrar ponto hoje, escolha como este dia deve ser considerado.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _buildSaturdayOptionTile(
+                  title: 'Sábado de compensação',
+                  subtitle: 'Jornada especial de sábado',
+                  icon: Icons.event_repeat_rounded,
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_SaturdayClassificationOption.compensation),
+                ),
+                _buildSaturdayOptionTile(
+                  title: 'Troca',
+                  subtitle: 'Dia trabalhado por troca de feriado',
+                  icon: Icons.swap_horiz_rounded,
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_SaturdayClassificationOption.swap),
+                ),
+                _buildSaturdayOptionTile(
+                  title: 'Dia normal por exceção',
+                  subtitle: 'Conta como jornada normal',
+                  icon: Icons.work_history_rounded,
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_SaturdayClassificationOption.regularException),
+                ),
+                const SizedBox(height: 6),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSaturdayOptionTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: theme.colorScheme.secondary),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+
+  Future<void> _editRecordTime(
+    _RecordField field,
+    DateTime? currentValue,
+  ) async {
     final selectedTime = await showTimePicker(
       context: context,
       initialTime: currentValue != null
@@ -379,7 +565,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _hourFormatter.format(DateTime(2000, 1, 1, hour, minute));
   }
 
-  bool get _isDayFinalized => _todayRecord.entryTime != null && _todayRecord.exitTime != null;
+  bool get _isDayFinalized =>
+      _todayRecord.entryTime != null && _todayRecord.exitTime != null;
 
   bool get _isCalendarTodayRecord {
     final d = _todayRecord.date;
@@ -413,7 +600,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Duration workedHours = Duration.zero;
     int workedDays = 0;
     for (final record in records) {
-      final day = DateTime(record.date.year, record.date.month, record.date.day);
+      final day = DateTime(
+        record.date.year,
+        record.date.month,
+        record.date.day,
+      );
       if (day.isBefore(weekStart) || day.isAfter(weekEnd)) {
         continue;
       }
@@ -424,7 +615,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
     final insightsEngine = InsightsEngine(
-      workScheduleEngine: WorkScheduleEngine(AppSettingsService.current.workDayRule),
+      workScheduleEngine: WorkScheduleEngine(
+        AppSettingsService.current.workDayRule,
+      ),
     );
     final insights = insightsEngine.analyze(records: records, now: now);
     return _WeeklySummary(
