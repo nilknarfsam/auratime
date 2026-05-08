@@ -9,6 +9,11 @@ import 'package:auratime/services/app_settings_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+bool shouldShowInsightInStatusCard(InsightItem insight) {
+  final message = insight.message.toLowerCase();
+  return !message.contains('padrão de hora extra');
+}
+
 /// Dashboard insights: status/progress tick locally; insights and weekly summary
 /// rebuild only when [weekRevision] notifies (localized updates from parent).
 class DashboardInsightsPanel extends StatelessWidget {
@@ -78,10 +83,12 @@ class _DashboardLiveMetricsBlock extends StatefulWidget {
   final List<InsightItem> insights;
 
   @override
-  State<_DashboardLiveMetricsBlock> createState() => _DashboardLiveMetricsBlockState();
+  State<_DashboardLiveMetricsBlock> createState() =>
+      _DashboardLiveMetricsBlockState();
 }
 
-class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> {
+class _DashboardLiveMetricsBlockState
+    extends State<_DashboardLiveMetricsBlock> {
   late DateTime _now;
   Timer? _refreshTimer;
   final DateFormat _timeFormatter = DateFormat('HH:mm');
@@ -139,6 +146,9 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
       grossShiftDuration: expectedGross,
       lunchBreak: settings.lunchBreakDuration,
     );
+    final visibleInsights = widget.insights
+        .where(shouldShowInsightInStatusCard)
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -155,9 +165,7 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: statusColor.withValues(alpha: 0.28),
-              ),
+              border: Border.all(color: statusColor.withValues(alpha: 0.28)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,14 +221,15 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
                       _buildMetaChip(
                         theme: theme,
                         icon: Icons.flag_circle_rounded,
-                        label: 'Saída prevista: ${_timeFormatter.format(predictedExit)}',
+                        label:
+                            'Saída prevista: ${_timeFormatter.format(predictedExit)}',
                       ),
                   ],
                 ),
-                if (widget.insights.isNotEmpty) ...[
+                if (visibleInsights.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
-                    widget.insights.first.message,
+                    visibleInsights.first.message,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -254,8 +263,8 @@ class _DashboardLiveMetricsBlockState extends State<_DashboardLiveMetricsBlock> 
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 8,
-                    backgroundColor:
-                        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.45),
                   ),
                 ),
                 const SizedBox(height: 8),
