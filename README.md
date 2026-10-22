@@ -1,3 +1,12 @@
+<!-- organizacao-github:inicio -->
+> [!NOTE]
+> **📌 Organização do GitHub (22/10/2026): ✅ MANTER (vitrine)**
+>
+> 52 commits, ativo. Fixar no perfil. Falta colocar os prints no README.
+>
+> _Nota temporária do Claude. Some quando a organização terminar._
+<!-- organizacao-github:fim -->
+
 # AuraTime
 
 AuraTime e um aplicativo Flutter para controle de jornada com foco em visual premium, rapidez no registro e acompanhamento de saldo de horas.
