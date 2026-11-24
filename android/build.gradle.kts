@@ -16,6 +16,14 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 subprojects {
+    configurations.configureEach {
+        resolutionStrategy {
+            // home_widget uses glance-appwidget:1.+, which can resolve to alphas that
+            // require AGP 9.1+ and compileSdk 37. Pin a stable release for Play builds.
+            force("androidx.glance:glance-appwidget:1.1.1")
+        }
+    }
+
     project.evaluationDependsOn(":app")
 
     fun applyFallbackNamespace() {

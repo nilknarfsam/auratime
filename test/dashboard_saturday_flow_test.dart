@@ -1,4 +1,3 @@
-import 'package:auratime/domain/insights/insights_engine.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_engine.dart';
 import 'package:auratime/domain/work_schedule/work_schedule_models.dart';
 import 'package:auratime/screens/dashboard_screen.dart';
